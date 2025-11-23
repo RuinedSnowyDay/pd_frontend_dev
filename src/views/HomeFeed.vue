@@ -11,10 +11,10 @@
 
     <div class="cards">
       <div v-for="p in papers" :key="p.id" class="card">
-        <h3 class="title"><a :href="`/paper/${encodeURIComponent(p.id)}`">{{ p.title || p.id }}</a></h3>
+        <h3 class="title"><a :href="`/paper/${encodeURIComponent(p.paperId)}`">{{ p.title || p.paperId }}</a></h3>
         <div class="meta">{{ p.createdAt ? new Date(p.createdAt).toLocaleString() : '' }}</div>
         <div class="ctas">
-          <a class="primary" :href="`/paper/${encodeURIComponent(p.id)}`">View discussion</a>
+          <a class="primary" :href="`/paper/${encodeURIComponent(p.paperId)}`">View discussion</a>
         </div>
       </div>
       <p v-if="!loading && !papers.length" class="hint">No papers yet — use the search above or ensure one from the Paper page.</p>
@@ -27,7 +27,7 @@ import { onMounted, ref } from 'vue';
 import { paper } from '@/api/endpoints';
 
 const tab = ref<'trending'|'new'|'discussed'>('trending');
-const papers = ref<Array<{ id: string; title?: string; createdAt?: number }>>([]);
+const papers = ref<Array<{ id: string; paperId: string; title?: string; createdAt?: number }>>([]);
 const loading = ref(false);
 
 onMounted(async () => {

@@ -278,7 +278,7 @@ async function loadPdf() {
   }
   pageWrappers = [];
   pdfDoc = null;
-   highlights.value = [];
+  highlights.value = [];
 
   try {
     const loadingTask = (pdfjsLib as any).getDocument({
@@ -737,7 +737,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => [props.src, props.zoom, props.highlightVisibility, props.highlightClickMode],
+  () => [props.src, props.zoom, props.highlightVisibility, props.highlightClickMode, props.paperId],
   () => {
     cancelled = false;
     loadPdf();

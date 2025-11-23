@@ -10,30 +10,42 @@ export const paper = {
   async updateMeta(args: { id: string; title?: string }): Promise<void> {
     await post<{ ok: true }>(`/PaperIndex/updateMeta`, args);
   },
-  async get(args: { id: string }): Promise<{ id: string; title?: string }> {
+  async get(args: { id: string }): Promise<{ id: string; paperId: string; title?: string }> {
+    // id is the external paperId (DOI, arXiv, etc.)
+    // Use _getByPaperId to get the paper by external identifier
     const data = await post<
-      Array<{ paper: { _id: string; title?: string } | null }>
-    >(`/PaperIndex/_get`, { paper: args.id });
-    const doc = data[0]?.paper ?? { _id: args.id };
-    return { id: doc._id, title: doc.title };
+      Array<{ paper: { _id: string; paperId: string; title?: string } | null }>
+    >(`/PaperIndex/_getByPaperId`, { paperId: args.id });
+    const doc = data[0]?.paper;
+    if (doc) {
+      // Return both internal _id (for backend operations) and external paperId (for display/URLs)
+      return { id: doc._id, paperId: doc.paperId, title: doc.title };
+    }
+    // If paper doesn't exist, return the external id as fallback for both
+    return { id: args.id, paperId: args.id };
   },
-  async listRecent(args?: { limit?: number }): Promise<{ papers: Array<{ id: string; title?: string; createdAt?: number }> }> {
+  async listRecent(args?: { limit?: number }): Promise<{ papers: Array<{ id: string; paperId: string; title?: string; createdAt?: number }> }> {
+    // Query returns fan-out format: Array<{ paper: PaperDoc }>
     const data = await post<
-      Array<{ papers: Array<{ _id: string; title?: string; createdAt?: number }> }>
+      Array<{ paper: { _id: string; paperId: string; title?: string; createdAt?: number; authors: string[]; links: string[] } }>
     >(`/PaperIndex/_listRecent`, args ?? {});
-    const papers = (data[0]?.papers ?? []).map(r => ({
-      id: r._id,
-      title: r.title,
-      createdAt: r.createdAt,
+    // Collect all papers from fan-out format
+    const papers = data.map(r => ({
+      id: r.paper._id, // Internal _id for backend operations
+      paperId: r.paper.paperId, // External paperId for display/URLs
+      title: r.paper.title,
+      createdAt: r.paper.createdAt,
     }));
     return { papers };
   },
   async searchArxiv(args: { q: string }): Promise<{ papers: Array<{ id: string; title?: string }> }> {
+    // Query returns fan-out format: Array<{ result: { id, title? } }>
     const data = await post<
-      Array<{ result: Array<{ id: string; title?: string }> }>
+      Array<{ result: { id: string; title?: string } }>
     >(`/PaperIndex/_searchArxiv`, args);
-    const result = data[0]?.result ?? [];
-    return { papers: result };
+    // Collect all results from fan-out format
+    const results = data.map(r => r.result);
+    return { papers: results };
   },
 };
 
@@ -46,6 +58,11 @@ export const anchored = {
     session: string;
   }): Promise<{ anchorId: string }> {
     const { paperId, kind, ref, snippet, session } = args;
+
+    // Convert external paperId to internal _id for PdfHighlighter operations
+    // Ensure paper exists and get internal _id
+    const ensured = await paper.ensure({ id: paperId });
+    const internalPaperId = ensured.id;
 
     // Parse legacy ref string "p=3;rects=x,y,w,h|..."
     let page = 1;
@@ -72,12 +89,13 @@ export const anchored = {
     }
 
     // 1) Create the PDF highlight (geometry + quote)
+    // Use internal _id for PdfHighlighter operations
     const highlightRes = await post<{
       highlightId?: string;
       error?: string;
     }>(`/PdfHighlighter/createHighlight`, {
       session,
-      paper: paperId,
+      paper: internalPaperId,
       page,
       rects,
       quote: snippet,
@@ -110,7 +128,12 @@ export const anchored = {
   > {
     const { paperId } = args;
 
-    // Load contexts for this paper
+    // Convert external paperId to internal _id for PdfHighlighter operations
+    // Ensure paper exists and get internal _id
+    const ensured = await paper.ensure({ id: paperId });
+    const internalPaperId = ensured.id;
+
+    // Load contexts for this paper (uses external paperId)
     const ctxData = await post<
       Array<{
         filteredContexts: Array<{
@@ -127,19 +150,23 @@ export const anchored = {
     const contexts = ctxData[0]?.filteredContexts ?? [];
     if (!contexts.length) return { anchors: [] };
 
-    // Load all highlights for this paper
-    const hlData = await post<
-      Array<{
-        highlights: Array<{
+    // Load all highlights for this paper (uses internal _id)
+    // The sync returns { highlights: [{ highlight: HighlightDoc }, ...] } (wrapped)
+    // collectAs doesn't unwrap, so we need to extract the highlight field
+    const hlData = await post<{
+      highlights: Array<{
+        highlight: {
           _id: string;
           paper: string;
           page: number;
           rects: Array<{ x: number; y: number; w: number; h: number }>;
           quote?: string;
-        }>;
-      }>
-    >(`/PdfHighlighter/_listByPaper`, { paper: paperId });
-    const highlights = hlData[0]?.highlights ?? [];
+        };
+      }>;
+    }>(`/PdfHighlighter/_listByPaper`, { paper: internalPaperId });
+    const rawHighlights = hlData?.highlights ?? [];
+    // Unwrap highlights from { highlight: HighlightDoc } format
+    const highlights = rawHighlights.map((h) => h.highlight);
     const hlById = new Map(highlights.map((h) => [h._id, h]));
 
     const anchors = contexts
@@ -147,7 +174,7 @@ export const anchored = {
         const hl = hlById.get(ctx.location);
         if (!hl) return null;
         const rectsEncoded = (hl.rects ?? [])
-          .map((r) =>
+          .map((r: { x: number; y: number; w: number; h: number }) =>
             [r.x, r.y, r.w, r.h].map((n) => Number(n.toFixed(4))).join(","),
           )
           .join("|");
@@ -192,10 +219,13 @@ export const discussion = {
     return { pubId: result };
   },
   async listThreads(args: { pubId: string; anchorId?: string }): Promise<{ threads: Array<{ _id: string; author: string; body: string; anchorId?: string; createdAt: number; editedAt?: number }>}> {
+    // Query returns fan-out format: Array<{ thread: Thread }>
     const data = await post<
-      Array<{ threads: Array<{ _id: string; author: string; title?: string; body: string; anchorId?: string; createdAt: number; editedAt?: number }> }>
+      Array<{ thread: { _id: string; author: string; title?: string; body: string; anchorId?: string; createdAt: number; editedAt?: number } }>
     >(`/DiscussionPub/_listThreads`, args);
-    const threads = data[0]?.threads ?? [];
+    // Sync collects threads into { threads: [...] } response
+    const response = data as any;
+    const threads = response.threads ?? data.map((r) => r.thread);
     return { threads };
   },
   async deleteThread(args: { threadId: string; session?: string }): Promise<{ ok: true }> {
@@ -207,17 +237,23 @@ export const discussion = {
     return data;
   },
   async listReplies(args: { threadId: string }): Promise<{ replies: Array<{ _id: string; author: string; body: string; createdAt: number; editedAt?: number }>}> {
+    // Query returns fan-out format: Array<{ reply: Reply }>
     const data = await post<
-      Array<{ replies: Array<{ _id: string; author: string; body: string; anchorId?: string; parentId?: string; createdAt: number; editedAt?: number }> }>
+      Array<{ reply: { _id: string; author: string; body: string; anchorId?: string; parentId?: string; createdAt: number; editedAt?: number } }>
     >(`/DiscussionPub/_listReplies`, args);
-    const replies = data[0]?.replies ?? [];
+    // Sync collects replies into { replies: [...] } response
+    const response = data as any;
+    const replies = response.replies ?? data.map((r) => r.reply);
     return { replies };
   },
   async listRepliesTree(args: { threadId: string }): Promise<{ replies: Array<any> }> {
+    // Query returns fan-out format: Array<{ reply: ReplyTree }>
     const data = await post<
-      Array<{ replies: Array<any> }>
+      Array<{ reply: any }>
     >(`/DiscussionPub/_listRepliesTree`, args);
-    const replies = data[0]?.replies ?? [];
+    // Sync collects replies into { replies: [...] } response
+    const response = data as any;
+    const replies = response.replies ?? data.map((r) => r.reply);
     return { replies };
   },
 };
@@ -230,9 +266,12 @@ export const identity = {
     await post<{ ok: true }>(`/IdentityVerification/addBadge`, args);
   },
   async get(args: { userId: string }): Promise<{ orcid?: string; affiliation?: string; badges: string[] }> {
-    const data = await post<{ result: { orcid?: string; affiliation?: string; badges?: string[] } | null }>(`/IdentityVerification/get`, args);
-    const r = data.result ?? {};
-    return { orcid: r.orcid, affiliation: r.affiliation, badges: r.badges ?? [] };
+    // Sync queries all three and combines them into { orcids, affiliations, badges }
+    const data = await post<{ orcids: Array<{ orcid: { orcid: string } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/_getByUser`, args);
+    const orcid = data.orcids?.[0]?.orcid?.orcid;
+    const affiliation = data.affiliations?.[0]?.affiliation?.affiliation;
+    const badges = data.badges?.map((b) => b.badge.badge) ?? [];
+    return { orcid, affiliation, badges };
   },
 };
 

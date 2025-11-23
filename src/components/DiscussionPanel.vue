@@ -347,7 +347,7 @@ watch(() => props.paperId, () => {
 
 // Reload when filter changes and pub is present
 watch(
-  () => [props.anchorFilterProp, anchorFilter.value, pubId.value],
+  () => [props.anchorFilterProp, anchorFilter.value],
   async () => { if (pubId.value) await loadThreads(); }
 );
 

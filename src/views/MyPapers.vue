@@ -3,8 +3,8 @@
     <h2>My Papers</h2>
     <div class="cards">
       <div v-for="p in papers" :key="p.id" class="card">
-        <h3 class="title"><a :href="`/paper/${encodeURIComponent(p.id)}`">{{ p.title || p.id }}</a></h3>
-        <button class="ghost" @click="remove(p.id)">Remove</button>
+        <h3 class="title"><a :href="`/paper/${encodeURIComponent(p.paperId)}`">{{ p.title || p.paperId }}</a></h3>
+        <button class="ghost" @click="remove(p.paperId)">Remove</button>
       </div>
       <p v-if="!papers.length" class="hint">No saved papers yet.</p>
     </div>
@@ -16,7 +16,7 @@ import { onMounted, ref, watch } from 'vue';
 import { paper } from '@/api/endpoints';
 import { useSessionStore } from '@/stores/session';
 
-const papers = ref<Array<{ id: string; title?: string }>>([]);
+const papers = ref<Array<{ id: string; paperId: string; title?: string }>>([]);
 const store = useSessionStore();
 
 function load() {
@@ -25,16 +25,18 @@ function load() {
   const ids: string[] = JSON.parse(localStorage.getItem(key) || '[]');
   papers.value = [];
   Promise.all(ids.map(async (id) => {
-    const { title } = await paper.get({ id });
-    papers.value.push({ id, title });
+    // id from localStorage is the external paperId
+    const result = await paper.get({ id });
+    papers.value.push({ id: result.id, paperId: result.paperId, title: result.title });
   }));
 }
 
-function remove(id: string) {
+function remove(paperId: string) {
   if (!store.userId) return;
   const key = `library:${store.userId}`;
   const ids: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-  const next = ids.filter(x => x !== id);
+  // Remove by external paperId (what's stored in localStorage)
+  const next = ids.filter(x => x !== paperId);
   localStorage.setItem(key, JSON.stringify(next));
   load();
 }

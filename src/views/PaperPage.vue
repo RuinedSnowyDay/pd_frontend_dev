@@ -37,7 +37,7 @@
           </div>
           <PdfAnnotator
             :src="pdfProxyLink"
-            :paper-id="id"
+            :paper-id="externalPaperId"
             :active-color="selectedColor"
             :zoom="zoom"
             :highlight-visibility="highlightVisibility"
@@ -55,14 +55,17 @@ import { paper } from '@/api/endpoints';
 import { BASE_URL } from '@/api/client';
 
 const props = defineProps<{ id: string }>();
-const resolvedId = ref<string>(props.id);
+// id is the external paperId (from route)
+const externalPaperId = ref<string>(props.id);
+// internal _id (from ensure) - used for PdfHighlighter operations
+const internalPaperId = ref<string | null>(null);
 const header = reactive<{ title?: string; doi?: string; link?: string; authors?: string }>({});
 import { useSessionStore } from '@/stores/session';
 const session = useSessionStore();
 const banner = ref('');
 
-const pdfProxyLink = computed(() => `${BASE_URL}/pdf/${encodeURIComponent(resolvedId.value)}`);
-const pdfArxivLink = computed(() => `https://arxiv.org/pdf/${encodeURIComponent(resolvedId.value)}.pdf`);
+const pdfProxyLink = computed(() => `${BASE_URL}/pdf/${encodeURIComponent(externalPaperId.value)}`);
+const pdfArxivLink = computed(() => `https://arxiv.org/pdf/${encodeURIComponent(externalPaperId.value)}.pdf`);
 
 const zoom = ref(1);
 const colors = [
@@ -95,10 +98,10 @@ onMounted(async () => {
       window.location.assign(`/search?q=${encodeURIComponent(props.id)}`);
       return;
     }
-    const { id, title } = await paper.get({ id: resolvedId.value });
+    const { id, title } = await paper.get({ id: externalPaperId.value });
     header.title = title;
-    header.doi = resolvedId.value;
-    header.link = `https://arxiv.org/abs/${encodeURIComponent(resolvedId.value)}`;
+    header.doi = externalPaperId.value;
+    header.link = `https://arxiv.org/abs/${encodeURIComponent(externalPaperId.value)}`;
     if (!title) {
       // banner.value = 'This paper is not yet in your index.';
     }
@@ -106,11 +109,14 @@ onMounted(async () => {
   window.addEventListener('anchor-focus', onAnchorFocus);
 
   // Auto-ensure paper exists in local index so we can attach discussions
+  // This also gives us the internal _id which we need for PdfHighlighter operations
   try {
-    await paper.ensure({ id: resolvedId.value });
+    const ensured = await paper.ensure({ id: externalPaperId.value });
+    // Store internal _id for PdfHighlighter operations
+    internalPaperId.value = ensured.id;
     // Refresh title if it was missing
     if (!header.title) {
-      const { title } = await paper.get({ id: resolvedId.value });
+      const { title } = await paper.get({ id: externalPaperId.value });
       header.title = title;
     }
   } catch (e) {
@@ -122,14 +128,15 @@ onBeforeUnmount(() => {
   window.removeEventListener('anchor-focus', onAnchorFocus);
 });
 
-const id = computed(() => resolvedId.value);
+const id = computed(() => externalPaperId.value);
 
 function saveToLibrary() {
   if (!session.userId) { alert('Please sign in first.'); return; }
   const key = `library:${session.userId}`;
   const ids: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-  if (!ids.includes(id.value)) {
-    ids.push(id.value);
+  // Store external paperId in localStorage (for URLs and display)
+  if (!ids.includes(externalPaperId.value)) {
+    ids.push(externalPaperId.value);
     localStorage.setItem(key, JSON.stringify(ids));
   }
 }
