@@ -7,7 +7,10 @@
 </template>
 
 <script setup lang="ts">
-function at(path: string) { return location.pathname === path; }
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
+function at(path: string) { return route.path === path; }
 </script>
 
 <style scoped>
