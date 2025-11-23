@@ -8,13 +8,36 @@
       <label>Author</label>
       <input disabled placeholder="Sign in to post" />
     </div>
-    <div class="row">
-      <label>Topic</label>
-      <textarea v-model.trim="body" rows="3" />
+    <div class="compose-area">
+      <div v-if="attachments.length" class="attachments-preview">
+        <div v-for="(url, i) in attachments" :key="url" class="attachment-thumb">
+          <img :src="url" />
+          <button class="remove-btn" @click="removeAttachment(i, attachments)">×</button>
+        </div>
+      </div>
+      <textarea
+        v-model="body"
+        rows="3"
+        @paste="handlePaste($event, attachments)"
+        placeholder="Start a discussion... (Paste images or click icon)"
+      />
+      <div class="toolbar">
+         <button class="icon-btn" title="Add Image" @click="fileInput?.click()">
+           📷
+         </button>
+         <input
+           ref="fileInput"
+           type="file"
+           accept="image/*"
+           multiple
+           style="display: none"
+           @change="handleFileSelect($event, attachments)"
+         />
+      </div>
     </div>
     <!-- Anchor is now implicit (set via Prompt); no manual field needed -->
     <button
-      :disabled="busyThread || !pubId || !body || !session.token"
+      :disabled="busyThread || !pubId || (!body && !attachments.length) || !session.token"
       @click="onStartThread"
     >
       {{ !session.token ? 'Sign in to post' : (busyThread ? 'Posting…' : 'Start Thread') }}
@@ -60,11 +83,31 @@
               Delete
             </a>
           </div>
-          <p class="body">{{ t.body }}</p>
+          <div class="body" v-html="renderBody(t.body)" @click="handleBodyClick"></div>
           <div v-if="replyThreadId === t.id" class="compose-thread-reply">
-            <textarea v-model.trim="replyBody" rows="2" placeholder="Reply to thread..." />
+            <div v-if="replyAttachments.length" class="attachments-preview">
+              <div v-for="(url, i) in replyAttachments" :key="url" class="attachment-thumb">
+                <img :src="url" />
+                <button class="remove-btn" @click="removeAttachment(i, replyAttachments)">×</button>
+              </div>
+            </div>
+            <textarea
+              v-model="replyBody"
+              rows="2"
+              placeholder="Reply to thread... (Paste images or click icon)"
+              @paste="handlePaste($event, replyAttachments)"
+            />
             <div class="actions-row">
-              <button class="primary small" :disabled="!replyBody || !session.token || busyReply" @click="onReply">{{ !session.token ? 'Sign in' : (busyReply ? 'Sending…' : 'Reply') }}</button>
+              <button class="icon-btn" title="Add Image" @click="replyFileInput?.click()">📷</button>
+               <input
+                 ref="replyFileInput"
+                 type="file"
+                 accept="image/*"
+                 multiple
+                 style="display: none"
+                 @change="handleFileSelect($event, replyAttachments)"
+               />
+              <button class="primary small" :disabled="(!replyBody && !replyAttachments.length) || !session.token || busyReply" @click="onReply">{{ !session.token ? 'Sign in' : (busyReply ? 'Sending…' : 'Reply') }}</button>
               <button class="ghost small" @click="replyThreadId = ''">Cancel</button>
             </div>
           </div>
@@ -75,6 +118,12 @@
       <p v-else-if="threads.length && anchorFilter">No threads match this filter.</p>
       <p v-else>No threads yet.</p>
     </div>
+    <ImageViewer
+      v-if="viewerImages.length"
+      :images="viewerImages"
+      :start-index="viewerIndex"
+      @close="viewerImages = []"
+    />
   </div>
 </template>
 
@@ -82,7 +131,9 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useSessionStore } from '@/stores/session';
 import { discussion } from '@/api/endpoints';
+import { BASE_URL } from '@/api/client';
 import ReplyTree from '@/components/ReplyTree.vue';
+import ImageViewer from '@/components/ImageViewer.vue';
 
 const props = defineProps<{ paperId: string | null; anchorFilterProp?: string | null }>();
 
@@ -100,9 +151,15 @@ const busyThread = ref(false);
 const errorThread = ref('');
 const threadMsg = ref('');
 
+const attachments = ref<string[]>([]);
+const fileInput = ref<HTMLInputElement | null>(null);
+const viewerImages = ref<string[]>([]);
+const viewerIndex = ref(0);
+
 const replyThreadId = ref('');
 const replyBody = ref('');
-const quickReplyBox = ref<HTMLElement | null>(null);
+const replyAttachments = ref<string[]>([]);
+const replyFileInput = ref<HTMLInputElement | null>(null);
 const busyReply = ref(false);
 const errorReply = ref('');
 const replyMsg = ref('');
@@ -118,6 +175,60 @@ const filteredThreads = computed(() =>
     ? threads.value.filter(t => t.anchorId === (props.anchorFilterProp ?? anchorFilter.value))
     : threads.value
 );
+
+function renderBody(text: string) {
+  if (!text) return '';
+  // Basic XSS protection
+  const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Replace markdown image syntax: ![alt](url) -> <img src="url" alt="alt">
+  // We add a class to identify these images for the click handler
+  return safe.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="post-image" />');
+}
+
+async function handleUpload(file: File): Promise<string | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch(`${BASE_URL}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    return data.url || null;
+  } catch (err) {
+    console.error('Image upload failed', err);
+    return null;
+  }
+}
+
+async function handlePaste(e: ClipboardEvent, list: string[]) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.indexOf('image') !== -1) {
+      const blob = item.getAsFile();
+      if (!blob) continue;
+      const url = await handleUpload(blob);
+      if (url) list.push(url);
+    }
+  }
+}
+
+async function handleFileSelect(e: Event, list: string[]) {
+  const input = e.target as HTMLInputElement;
+  if (!input.files?.length) return;
+  
+  for (const file of input.files) {
+    const url = await handleUpload(file);
+    if (url) list.push(url);
+  }
+  input.value = ''; // Reset
+}
+
+function removeAttachment(index: number, list: string[]) {
+  list.splice(index, 1);
+}
 
 function toggleExpanded(id: string) {
   expanded.value = { ...expanded.value, [id]: !expanded.value[id] };
@@ -226,16 +337,22 @@ async function onStartThread() {
   if (!pubId.value || busyThread.value) return; // Prevent double-submit
   busyThread.value = true; errorThread.value=''; threadMsg.value='';
   try {
+    let finalBody = body.value;
+    if (attachments.value.length) {
+       finalBody += '\n\n' + attachments.value.map(url => `![image](${url})`).join('\n');
+    }
+
     const res = await discussion.startThread({
       pubId: pubId.value,
       author: session.userId || 'anonymous',
-      body: body.value,
+      body: finalBody,
       anchorId: anchorId.value || undefined,
       session: session.token || undefined,
     });
     threadMsg.value = `Thread created${anchorId.value ? ` (anchor: ${anchorId.value})` : ''}`;
     actions.value.unshift(`Thread created${anchorId.value ? ` (anchor: ${anchorId.value})` : ''}`);
     body.value = '';
+    attachments.value = [];
     anchorId.value = '';
     replyThreadId.value = res.threadId;
     await loadThreads();
@@ -250,17 +367,37 @@ async function onReply() {
   if (busyReply.value) return; // Prevent double-submit
   busyReply.value = true; errorReply.value=''; replyMsg.value='';
   try {
+    let finalBody = replyBody.value;
+    if (replyAttachments.value.length) {
+       finalBody += '\n\n' + replyAttachments.value.map(url => `![image](${url})`).join('\n');
+    }
+
     // Use reply (not replyTo) for top-level replies to threads
-    const res = await discussion.reply({ threadId: replyThreadId.value, author: session.userId || 'anonymous', body: replyBody.value, session: session.token || undefined });
+    const res = await discussion.reply({ threadId: replyThreadId.value, author: session.userId || 'anonymous', body: finalBody, session: session.token || undefined });
     replyMsg.value = `Reply created (id: ${res.replyId})`;
     actions.value.unshift(`Reply ${res.replyId} added to ${replyThreadId.value}`);
     replyBody.value = '';
+    replyAttachments.value = [];
     replyThreadId.value = ''; // Close box after sending
     await loadThreads();
   } catch (e: any) {
     errorReply.value = e?.message ?? String(e);
   } finally {
     busyReply.value = false;
+  }
+}
+
+function handleBodyClick(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (target.tagName === 'IMG' && target.classList.contains('post-image')) {
+    const container = target.closest('.body');
+    if (!container) return;
+    const imgs = Array.from(
+      container.querySelectorAll<HTMLImageElement>('img.post-image'),
+    );
+    viewerImages.value = imgs.map((img) => img.src);
+    const idx = imgs.findIndex((img) => img === target);
+    viewerIndex.value = idx >= 0 ? idx : 0;
   }
 }
 
@@ -348,7 +485,87 @@ button:disabled { opacity: 0.6; }
 .small { padding: 4px 8px; font-size: 12px; }
 .anchor { background: var(--chip-bg); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; font-size: 12px; }
 .body { margin: 6px 0; }
+/* Deep selector because v-html renders dynamic content */
+.body :deep(.post-image) {
+  display: inline-block;
+  width: calc(50% - 6px);
+  margin: 3px;
+  border-radius: 6px;
+  cursor: zoom-in;
+  max-height: 220px;
+  object-fit: cover;
+}
 .replies { padding-left: 16px; }
+
+.compose-area {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px;
+  background: #fff;
+}
+.compose-area textarea {
+  border: none;
+  width: 100%;
+  resize: vertical;
+  padding: 8px;
+  outline: none;
+}
+.toolbar {
+  border-top: 1px solid #eee;
+  padding: 4px 8px;
+  display: flex;
+  gap: 8px;
+}
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  border-radius: 4px;
+  color: #666;
+}
+.icon-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+.attachments-preview {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid #eee;
+}
+.attachment-thumb {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+.attachment-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #333;
+  color: white;
+  border: none;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
 </style>
 
  
