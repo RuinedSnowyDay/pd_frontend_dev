@@ -261,9 +261,12 @@ export const identity = {
     await post<{ ok: true }>(`/IdentityVerification/addBadge`, args);
   },
   async get(args: { userId: string }): Promise<{ orcid?: string; affiliation?: string; badges: string[] }> {
-    const data = await post<{ result: { orcid?: string; affiliation?: string; badges?: string[] } | null }>(`/IdentityVerification/get`, args);
-    const r = data.result ?? {};
-    return { orcid: r.orcid, affiliation: r.affiliation, badges: r.badges ?? [] };
+    // Sync queries all three and combines them into { orcids, affiliations, badges }
+    const data = await post<{ orcids: Array<{ orcid: { orcid: string } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/_getByUser`, args);
+    const orcid = data.orcids?.[0]?.orcid?.orcid;
+    const affiliation = data.affiliations?.[0]?.affiliation?.affiliation;
+    const badges = data.badges?.map((b) => b.badge.badge) ?? [];
+    return { orcid, affiliation, badges };
   },
 };
 
