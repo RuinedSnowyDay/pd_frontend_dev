@@ -11,7 +11,7 @@
     <div class="compose-area">
       <div v-if="attachments.length" class="attachments-preview">
         <div v-for="(url, i) in attachments" :key="url" class="attachment-thumb">
-          <img :src="url" />
+          <img :src="url" @click="openViewerFromAttachments(attachments, i)" />
           <button class="remove-btn" @click="removeAttachment(i, attachments)">×</button>
         </div>
       </div>
@@ -22,7 +22,7 @@
         placeholder="Start a discussion... (Paste images or click icon)"
       />
       <div class="toolbar">
-         <button class="icon-btn" title="Add Image" @click="fileInput?.click()">
+         <button class="icon-btn" title="Add Image" @click="openThreadFilePicker">
            📷
          </button>
          <input
@@ -87,7 +87,7 @@
           <div v-if="replyThreadId === t.id" class="compose-thread-reply">
             <div v-if="replyAttachments.length" class="attachments-preview">
               <div v-for="(url, i) in replyAttachments" :key="url" class="attachment-thumb">
-                <img :src="url" />
+                <img :src="url" @click="openViewerFromAttachments(replyAttachments, i)" />
                 <button class="remove-btn" @click="removeAttachment(i, replyAttachments)">×</button>
               </div>
             </div>
@@ -98,15 +98,16 @@
               @paste="handlePaste($event, replyAttachments)"
             />
             <div class="actions-row">
-              <button class="icon-btn" title="Add Image" @click="replyFileInput?.click()">📷</button>
-               <input
-                 ref="replyFileInput"
-                 type="file"
-                 accept="image/*"
-                 multiple
-                 style="display: none"
-                 @change="handleFileSelect($event, replyAttachments)"
-               />
+              <label class="icon-btn" title="Add Image">
+                📷
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style="display: none"
+                  @change="handleFileSelect($event, replyAttachments)"
+                />
+              </label>
               <button class="primary small" :disabled="(!replyBody && !replyAttachments.length) || !session.token || busyReply" @click="onReply">{{ !session.token ? 'Sign in' : (busyReply ? 'Sending…' : 'Reply') }}</button>
               <button class="ghost small" @click="replyThreadId = ''">Cancel</button>
             </div>
@@ -159,7 +160,6 @@ const viewerIndex = ref(0);
 const replyThreadId = ref('');
 const replyBody = ref('');
 const replyAttachments = ref<string[]>([]);
-const replyFileInput = ref<HTMLInputElement | null>(null);
 const busyReply = ref(false);
 const errorReply = ref('');
 const replyMsg = ref('');
@@ -228,6 +228,10 @@ async function handleFileSelect(e: Event, list: string[]) {
 
 function removeAttachment(index: number, list: string[]) {
   list.splice(index, 1);
+}
+
+function openThreadFilePicker() {
+  fileInput.value?.click();
 }
 
 function toggleExpanded(id: string) {
@@ -399,6 +403,12 @@ function handleBodyClick(e: MouseEvent) {
     const idx = imgs.findIndex((img) => img === target);
     viewerIndex.value = idx >= 0 ? idx : 0;
   }
+}
+
+function openViewerFromAttachments(list: string[], idx: number) {
+  if (!list.length) return;
+  viewerImages.value = [...list];
+  viewerIndex.value = idx;
 }
 
 function toggleReply(tid: string) {

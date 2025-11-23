@@ -9,7 +9,7 @@
     <div v-if="replying" class="compose-area">
       <div v-if="attachments.length" class="attachments-preview">
         <div v-for="(url, i) in attachments" :key="url" class="attachment-thumb">
-          <img :src="url" />
+          <img :src="url" @click="openViewerFromAttachments(attachments, i)" />
           <button class="remove-btn" @click="removeAttachment(i, attachments)">×</button>
         </div>
       </div>
@@ -20,7 +20,7 @@
         @paste="handlePaste($event, attachments)"
       />
       <div class="toolbar">
-         <button class="icon-btn" title="Add Image" @click="fileInput?.click()">📷</button>
+         <button class="icon-btn" title="Add Image" @click="openReplyFilePicker">📷</button>
          <input
            ref="fileInput"
            type="file"
@@ -141,6 +141,16 @@ function handleBodyClick(e: MouseEvent) {
   }
 }
 
+function openViewerFromAttachments(list: string[], idx: number) {
+  if (!list.length) return;
+  viewerImages.value = [...list];
+  viewerIndex.value = idx;
+}
+
+function openReplyFilePicker() {
+  fileInput.value?.click();
+}
+
 async function send() {
   if (sending.value) return; // Prevent double-submit
   sending.value = true;
@@ -200,6 +210,10 @@ onBeforeUnmount(() => {
 .meta { font-size: 12px; color: #444; }
 .body { margin: 4px 0 6px; }
 .actions { display: flex; gap: 6px; }
+.small { padding: 4px 8px; font-size: 12px; }
+.primary { background: var(--brand); color: #fff; border: 1px solid var(--brand); border-radius: 6px; }
+.ghost { background: #fff; color: var(--brand); border: 1px solid var(--brand); border-radius: 6px; }
+.delete { color: var(--error); border-color: var(--error); }
 .compose-area {
   border: 1px solid #ddd;
   border-radius: 6px;
