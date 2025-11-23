@@ -277,7 +277,7 @@ export const identity = {
     const badges = data.badges?.map((b) => b.badge.badge) ?? [];
     return { orcid, orcidId, verified, affiliation, badges };
   },
-  async initiateVerification(args: { orcid: string; redirectUri: string }): Promise<{ authUrl: string; state: string }> {
+  async initiateVerification(args: { orcid: string; redirectUri: string; session: string }): Promise<{ authUrl: string; state: string }> {
     const data = await post<{ authUrl: string; state: string }>(`/IdentityVerification/initiateVerification`, args);
     return data;
   },

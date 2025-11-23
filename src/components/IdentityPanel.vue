@@ -155,7 +155,8 @@ async function onVerifyOrcid() {
     const redirectUri = `${window.location.origin}${window.location.pathname}?orcid=${currentOrcidId.value}`;
     const result = await identity.initiateVerification({ 
       orcid: currentOrcidId.value,
-      redirectUri 
+      redirectUri,
+      session: session.token || ''
     });
     
     if (result.authUrl) {
