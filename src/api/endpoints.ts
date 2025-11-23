@@ -151,17 +151,22 @@ export const anchored = {
     if (!contexts.length) return { anchors: [] };
 
     // Load all highlights for this paper (uses internal _id)
-    // The sync collects all highlights and responds with { highlights: [...] }
+    // The sync returns { highlights: [{ highlight: HighlightDoc }, ...] } (wrapped)
+    // collectAs doesn't unwrap, so we need to extract the highlight field
     const hlData = await post<{
       highlights: Array<{
-        _id: string;
-        paper: string;
-        page: number;
-        rects: Array<{ x: number; y: number; w: number; h: number }>;
-        quote?: string;
+        highlight: {
+          _id: string;
+          paper: string;
+          page: number;
+          rects: Array<{ x: number; y: number; w: number; h: number }>;
+          quote?: string;
+        };
       }>;
     }>(`/PdfHighlighter/_listByPaper`, { paper: internalPaperId });
-    const highlights = hlData?.highlights ?? [];
+    const rawHighlights = hlData?.highlights ?? [];
+    // Unwrap highlights from { highlight: HighlightDoc } format
+    const highlights = rawHighlights.map((h) => h.highlight);
     const hlById = new Map(highlights.map((h) => [h._id, h]));
 
     const anchors = contexts
@@ -169,7 +174,7 @@ export const anchored = {
         const hl = hlById.get(ctx.location);
         if (!hl) return null;
         const rectsEncoded = (hl.rects ?? [])
-          .map((r) =>
+          .map((r: { x: number; y: number; w: number; h: number }) =>
             [r.x, r.y, r.w, r.h].map((n) => Number(n.toFixed(4))).join(","),
           )
           .join("|");
