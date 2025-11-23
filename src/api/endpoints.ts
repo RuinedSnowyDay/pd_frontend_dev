@@ -25,23 +25,27 @@ export const paper = {
     return { id: args.id, paperId: args.id };
   },
   async listRecent(args?: { limit?: number }): Promise<{ papers: Array<{ id: string; paperId: string; title?: string; createdAt?: number }> }> {
+    // Query returns fan-out format: Array<{ paper: PaperDoc }>
     const data = await post<
-      Array<{ papers: Array<{ _id: string; paperId: string; title?: string; createdAt?: number }> }>
+      Array<{ paper: { _id: string; paperId: string; title?: string; createdAt?: number; authors: string[]; links: string[] } }>
     >(`/PaperIndex/_listRecent`, args ?? {});
-    const papers = (data[0]?.papers ?? []).map(r => ({
-      id: r._id, // Internal _id for backend operations
-      paperId: r.paperId, // External paperId for display/URLs
-      title: r.title,
-      createdAt: r.createdAt,
+    // Collect all papers from fan-out format
+    const papers = data.map(r => ({
+      id: r.paper._id, // Internal _id for backend operations
+      paperId: r.paper.paperId, // External paperId for display/URLs
+      title: r.paper.title,
+      createdAt: r.paper.createdAt,
     }));
     return { papers };
   },
   async searchArxiv(args: { q: string }): Promise<{ papers: Array<{ id: string; title?: string }> }> {
+    // Query returns fan-out format: Array<{ result: { id, title? } }>
     const data = await post<
-      Array<{ result: Array<{ id: string; title?: string }> }>
+      Array<{ result: { id: string; title?: string } }>
     >(`/PaperIndex/_searchArxiv`, args);
-    const result = data[0]?.result ?? [];
-    return { papers: result };
+    // Collect all results from fan-out format
+    const results = data.map(r => r.result);
+    return { papers: results };
   },
 };
 
