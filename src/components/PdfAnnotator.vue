@@ -82,6 +82,15 @@ const popupY = ref(0);
 let pendingSelection:
   | { pageIndex: number; rects: HighlightRect[]; text: string }
   | null = null;
+let boxDrawing:
+  | {
+      pageIndex: number;
+      startX: number;
+      startY: number;
+      wrapper: HTMLElement;
+      preview: HTMLElement;
+    }
+  | null = null;
 
 function withAlpha(color: string, alpha: number): string {
   if (color.startsWith('#')) {
@@ -97,6 +106,25 @@ function withAlpha(color: string, alpha: number): string {
     const g = (num >> 8) & 255;
     const b = num & 255;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+}
+
+function darken(color: string, factor = 0.6): string {
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 3) {
+      hex = hex
+        .split('')
+        .map((c) => c + c)
+        .join('');
+    }
+    const num = parseInt(hex, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    const scale = (v: number) => Math.max(0, Math.min(255, Math.round(v * factor)));
+    return `rgb(${scale(r)}, ${scale(g)}, ${scale(b)})`;
   }
   return color;
 }
@@ -192,6 +220,11 @@ async function loadPdf() {
       container.appendChild(wrapper);
       pageWrappers[i - 1] = wrapper;
 
+      // Alt+drag box selection on this page
+      wrapper.addEventListener('mousedown', (ev: MouseEvent) =>
+        onWrapperMouseDown(i - 1, wrapper, ev),
+      );
+
       // Match PdfView scaling behaviour, with optional external zoom
       const baseViewport = page.getViewport({ scale: 1 });
       const scale = (containerWidth / baseViewport.width) * zoom;
@@ -248,6 +281,8 @@ function drawHighlightsForPage(pageIndex: number) {
       div.style.width = `${Math.round(r.w * w)}px`;
       div.style.height = `${Math.round(r.h * hPx)}px`;
       div.style.backgroundColor = withAlpha(h.color, 0.3);
+      div.style.border = `1px solid ${darken(h.color)}`;
+      div.style.boxSizing = 'border-box';
       overlay.appendChild(div);
     }
   }
@@ -255,6 +290,11 @@ function drawHighlightsForPage(pageIndex: number) {
 
 // Handle text selection (copied from PdfView with minimal changes)
 function onMouseUp(e: MouseEvent) {
+  // If we were drawing a box, finish that first
+  if (boxDrawing) {
+    finishBoxDrawing(e);
+    return;
+  }
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return;
 
@@ -336,6 +376,117 @@ function onMouseUp(e: MouseEvent) {
   popupY.value = lastRect.bottom + window.scrollY + 5;
 
   pendingSelection = { pageIndex, rects: mergedRects, text };
+  showPopup.value = true;
+}
+
+function onWrapperMouseDown(
+  pageIndex: number,
+  wrapper: HTMLElement,
+  e: MouseEvent,
+) {
+  if (!e.altKey) return; // Alt+drag for region highlight
+  e.preventDefault();
+
+  // Clear any existing selection
+  try {
+    window.getSelection()?.removeAllRanges();
+  } catch {
+    // ignore
+  }
+
+  const overlay =
+    (wrapper.querySelector('.overlay') as HTMLElement | null) ??
+    (() => {
+      const o = document.createElement('div');
+      o.className = 'overlay';
+      wrapper.appendChild(o);
+      return o;
+    })();
+
+  const preview = document.createElement('div');
+  preview.className = 'hl';
+  preview.style.borderStyle = 'dashed';
+  overlay.appendChild(preview);
+
+  boxDrawing = {
+    pageIndex,
+    startX: e.clientX,
+    startY: e.clientY,
+    wrapper,
+    preview,
+  };
+
+  document.addEventListener('mousemove', onBoxMouseMove);
+}
+
+function onBoxMouseMove(e: MouseEvent) {
+  if (!boxDrawing) return;
+  const { startX, startY, wrapper, preview } = boxDrawing;
+
+  const rect = wrapper.getBoundingClientRect();
+  const x1 = Math.max(rect.left, Math.min(rect.right, startX));
+  const y1 = Math.max(rect.top, Math.min(rect.bottom, startY));
+  const x2 = Math.max(rect.left, Math.min(rect.right, e.clientX));
+  const y2 = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
+
+  const left = Math.min(x1, x2);
+  const top = Math.min(y1, y2);
+  const width = Math.abs(x2 - x1);
+  const height = Math.abs(y2 - y1);
+
+  const w = rect.width || 1;
+  const h = rect.height || 1;
+
+  preview.style.left = `${((left - rect.left) / w) * 100}%`;
+  preview.style.top = `${((top - rect.top) / h) * 100}%`;
+  preview.style.width = `${(width / w) * 100}%`;
+  preview.style.height = `${(height / h) * 100}%`;
+}
+
+function finishBoxDrawing(e: MouseEvent) {
+  if (!boxDrawing) return;
+
+  document.removeEventListener('mousemove', onBoxMouseMove);
+
+  const { pageIndex, wrapper, preview } = boxDrawing;
+  const rect = preview.getBoundingClientRect();
+  const base = wrapper.getBoundingClientRect();
+
+  const w = base.width || 1;
+  const h = base.height || 1;
+
+  let x = (rect.left - base.left) / w;
+  let y = (rect.top - base.top) / h;
+  let rw = rect.width / w;
+  let rh = rect.height / h;
+
+  const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+  x = clamp01(x);
+  y = clamp01(y);
+  const x2 = clamp01(x + rw);
+  const y2 = clamp01(y + rh);
+  rw = x2 - x;
+  rh = y2 - y;
+
+  // Remove preview; it will be re-drawn as a normal highlight
+  preview.remove();
+
+  boxDrawing = null;
+
+  if (rw <= 0 || rh <= 0) {
+    return;
+  }
+
+  const rects: HighlightRect[] = [{ x, y, w: rw, h: rh }];
+
+  popupX.value = e.clientX;
+  popupY.value = e.clientY + 5;
+
+  pendingSelection = {
+    pageIndex,
+    rects,
+    text: '',
+  };
   showPopup.value = true;
 }
 
