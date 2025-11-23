@@ -214,10 +214,13 @@ export const discussion = {
     return { pubId: result };
   },
   async listThreads(args: { pubId: string; anchorId?: string }): Promise<{ threads: Array<{ _id: string; author: string; body: string; anchorId?: string; createdAt: number; editedAt?: number }>}> {
+    // Query returns fan-out format: Array<{ thread: Thread }>
     const data = await post<
-      Array<{ threads: Array<{ _id: string; author: string; title?: string; body: string; anchorId?: string; createdAt: number; editedAt?: number }> }>
+      Array<{ thread: { _id: string; author: string; title?: string; body: string; anchorId?: string; createdAt: number; editedAt?: number } }>
     >(`/DiscussionPub/_listThreads`, args);
-    const threads = data[0]?.threads ?? [];
+    // Sync collects threads into { threads: [...] } response
+    const response = data as any;
+    const threads = response.threads ?? data.map((r) => r.thread);
     return { threads };
   },
   async deleteThread(args: { threadId: string; session?: string }): Promise<{ ok: true }> {
@@ -229,17 +232,23 @@ export const discussion = {
     return data;
   },
   async listReplies(args: { threadId: string }): Promise<{ replies: Array<{ _id: string; author: string; body: string; createdAt: number; editedAt?: number }>}> {
+    // Query returns fan-out format: Array<{ reply: Reply }>
     const data = await post<
-      Array<{ replies: Array<{ _id: string; author: string; body: string; anchorId?: string; parentId?: string; createdAt: number; editedAt?: number }> }>
+      Array<{ reply: { _id: string; author: string; body: string; anchorId?: string; parentId?: string; createdAt: number; editedAt?: number } }>
     >(`/DiscussionPub/_listReplies`, args);
-    const replies = data[0]?.replies ?? [];
+    // Sync collects replies into { replies: [...] } response
+    const response = data as any;
+    const replies = response.replies ?? data.map((r) => r.reply);
     return { replies };
   },
   async listRepliesTree(args: { threadId: string }): Promise<{ replies: Array<any> }> {
+    // Query returns fan-out format: Array<{ reply: ReplyTree }>
     const data = await post<
-      Array<{ replies: Array<any> }>
+      Array<{ reply: any }>
     >(`/DiscussionPub/_listRepliesTree`, args);
-    const replies = data[0]?.replies ?? [];
+    // Sync collects replies into { replies: [...] } response
+    const response = data as any;
+    const replies = response.replies ?? data.map((r) => r.reply);
     return { replies };
   },
 };
