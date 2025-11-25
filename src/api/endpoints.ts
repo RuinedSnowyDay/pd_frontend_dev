@@ -1,9 +1,10 @@
 import { post } from './client';
 
 export type AnchorKind = 'Section' | 'Figure' | 'Lines';
+export type PaperSource = 'arxiv' | 'biorxiv' | 'other';
 
 export const paper = {
-  async ensure(args: { id: string; title?: string }): Promise<{ id: string }> {
+  async ensure(args: { id: string; title?: string; source?: PaperSource }): Promise<{ id: string }> {
     const data = await post<{ result: string }>(`/PaperIndex/ensure`, args);
     return { id: data.result };
   },
@@ -43,6 +44,24 @@ export const paper = {
     const data = await post<
       Array<{ result: { id: string; title?: string } }>
     >(`/PaperIndex/_searchArxiv`, args);
+    // Collect all results from fan-out format
+    const results = data.map(r => r.result);
+    return { papers: results };
+  },
+  async searchBiorxiv(args: { q: string }): Promise<{ papers: Array<{ id: string; title?: string; doi?: string }> }> {
+    // Query returns fan-out format: Array<{ result: { id, title?, doi? } }>
+    const data = await post<
+      Array<{ result: { id: string; title?: string; doi?: string } }>
+    >(`/PaperIndex/_searchBiorxiv`, args);
+    // Collect all results from fan-out format
+    const results = data.map(r => r.result);
+    return { papers: results };
+  },
+  async listRecentBiorxiv(args?: { limit?: number }): Promise<{ papers: Array<{ id: string; title?: string; doi?: string }> }> {
+    // Query returns fan-out format: Array<{ result: { id, title?, doi? } }>
+    const data = await post<
+      Array<{ result: { id: string; title?: string; doi?: string } }>
+    >(`/PaperIndex/_listRecentBiorxiv`, args ?? {});
     // Collect all results from fan-out format
     const results = data.map(r => r.result);
     return { papers: results };

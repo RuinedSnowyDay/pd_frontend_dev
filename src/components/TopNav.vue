@@ -2,7 +2,11 @@
   <header class="topbar">
     <div class="brand" @click="goHome">PubDiscuss</div>
     <div class="search">
-      <input v-model.trim="q" placeholder="Search papers or authors" @keyup.enter="emitSearch" />
+      <select v-model="source" class="source-select">
+        <option value="arxiv">arXiv</option>
+        <option value="biorxiv">bioRxiv</option>
+      </select>
+      <input v-model.trim="q" :placeholder="source === 'arxiv' ? 'Search arXiv papers' : 'Search bioRxiv papers'" @keyup.enter="emitSearch" />
       <button class="primary" @click="emitSearch">Search</button>
     </div>
     <div class="right">
@@ -18,9 +22,12 @@ import { ref, computed } from 'vue';
 import { useSessionStore } from '@/stores/session';
 import { session } from '@/api/endpoints';
 
+type PaperSource = 'arxiv' | 'biorxiv';
+
 const props = defineProps<{ backendOk: boolean }>();
 const emit = defineEmits<{ (e: 'search', q: string): void }>();
 const q = ref('');
+const source = ref<PaperSource>('arxiv');
 let store: ReturnType<typeof useSessionStore>;
 try { store = useSessionStore(); } catch { /* during HMR pinia may not be active yet */ }
 const token = computed(() => store?.token ?? null);
@@ -28,12 +35,22 @@ const token = computed(() => store?.token ?? null);
 async function emitSearch() {
   const query = q.value.trim();
   if (!query) return;
-  const idLike = /^\d{4}\.\d{4,5}(v\d+)?$/;
-  if (idLike.test(query)) {
+  // arXiv ID pattern: YYMM.NNNNN or YYMM.NNNNNvN
+  const arxivIdLike = /^\d{4}\.\d{4,5}(v\d+)?$/;
+  // bioRxiv DOI pattern: 10.1101/... or just the suffix YYYY.MM.DD.NNNNNN
+  const biorxivIdLike = /^(10\.1101\/)?(\d{4}\.\d{2}\.\d{2}\.\d+)$/;
+  
+  if (source.value === 'arxiv' && arxivIdLike.test(query)) {
     window.location.assign(`/paper/${encodeURIComponent(query)}`);
     return;
   }
-  window.location.assign(`/search?q=${encodeURIComponent(query)}`);
+  if (source.value === 'biorxiv' && biorxivIdLike.test(query)) {
+    // Normalize to full DOI format for bioRxiv
+    const doi = query.startsWith('10.1101/') ? query : `10.1101/${query}`;
+    window.location.assign(`/paper/${encodeURIComponent(doi)}`);
+    return;
+  }
+  window.location.assign(`/search?q=${encodeURIComponent(query)}&source=${source.value}`);
 }
 function goHome() { window.location.assign('/'); }
 function goLogin() { window.location.assign('/login'); }
@@ -49,7 +66,8 @@ async function logout() {
 <style scoped>
 .topbar { position: sticky; top: 0; z-index: 50; display: grid; grid-template-columns: 200px 1fr auto; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); background: #fff; }
 .brand { color: var(--brand); font-weight: 700; font-family: var(--font-serif); cursor: pointer; }
-.search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.search { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; }
+.source-select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 14px; cursor: pointer; }
 input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
 .right { display: flex; gap: 8px; align-items: center; }
 .status { font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #f4f4f5; color: #444; }
