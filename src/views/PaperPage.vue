@@ -18,27 +18,62 @@
 
     <div class="columns">
       <section class="center">
-        <!-- bioRxiv PDFs must be viewed on bioRxiv's site (per their TDM terms) -->
-        <div v-if="paperSource === 'biorxiv'" class="biorxiv-fallback card">
-          <h3>bioRxiv Paper</h3>
-          <p>View the PDF on bioRxiv, then join the discussion here.</p>
-          <div class="biorxiv-actions">
-            <a class="primary" :href="externalPdfLink" target="_blank" rel="noreferrer">
-              Open PDF
-            </a>
-            <a class="ghost" :href="externalAbsLink" target="_blank" rel="noreferrer">
-              View Abstract
-            </a>
-          </div>
+        <!-- bioRxiv: User uploads their own PDF copy -->
+        <div v-if="paperSource === 'biorxiv' && !localPdfUrl" class="upload-prompt card">
+          <div class="upload-icon">📄</div>
+          <h3>Upload Your PDF Copy</h3>
+          <ol class="upload-steps">
+            <li>
+              <a :href="externalPdfLink" target="_blank" rel="noreferrer" class="download-link">
+                Download PDF from bioRxiv
+              </a>
+            </li>
+            <li>Upload it here to view with shared annotations</li>
+          </ol>
+          <label class="upload-btn primary">
+            Choose PDF File
+            <input type="file" accept=".pdf,application/pdf" @change="onPdfUpload" hidden />
+          </label>
+          <p class="privacy-note">Your PDF stays on your device only</p>
           <div class="discussion-hint">
-            <div class="hint-icon">💬</div>
             <p v-if="discussionCount > 0">
-              <strong>{{ discussionCount }}</strong> discussion{{ discussionCount === 1 ? '' : 's' }} in the sidebar
+              <strong>{{ discussionCount }}</strong> discussion{{ discussionCount === 1 ? '' : 's' }} available in the sidebar
             </p>
             <p v-else>
-              Start a discussion in the sidebar →
+              <a :href="externalAbsLink" target="_blank" rel="noreferrer">View abstract on bioRxiv</a>
             </p>
           </div>
+        </div>
+        <!-- bioRxiv with uploaded PDF -->
+        <div v-else-if="paperSource === 'biorxiv' && localPdfUrl" class="pdf-scroll">
+          <div class="toolbar">
+            <div class="colors">
+              <button
+                v-for="color in colors"
+                :key="color.value"
+                :style="{ backgroundColor: color.value }"
+                :class="['color-btn', { active: selectedColor === color.value }]"
+                @click="selectedColor = color.value"
+              ></button>
+            </div>
+            <div class="toolbar-right">
+              <button class="ghost remove-pdf" @click="removePdf" title="Remove uploaded PDF">
+                Remove PDF
+              </button>
+              <div class="zoom">
+                <button class="ghost" @click="zoomOut">-</button>
+                <span class="z">{{ Math.round(zoom * 100) }}%</span>
+                <button class="ghost" @click="zoomIn">+</button>
+              </div>
+            </div>
+          </div>
+          <PdfAnnotator
+            :src="localPdfUrl"
+            :paper-id="externalPaperId"
+            :active-color="selectedColor"
+            :zoom="zoom"
+            :highlight-visibility="highlightVisibility"
+          />
         </div>
         <!-- arXiv PDFs can be displayed inline via proxy -->
         <div v-else class="pdf-scroll">
@@ -76,6 +111,7 @@ import { onMounted, onBeforeUnmount, reactive, ref, computed } from 'vue';
 import PdfAnnotator from '@/components/PdfAnnotator.vue';
 import { paper, discussion } from '@/api/endpoints';
 import { BASE_URL } from '@/api/client';
+import { storePdf, getPdf, deletePdf } from '@/utils/pdfStorage';
 
 type PaperSource = 'arxiv' | 'biorxiv';
 
@@ -89,6 +125,10 @@ import { useSessionStore } from '@/stores/session';
 const session = useSessionStore();
 const banner = ref('');
 const discussionCount = ref(0);
+
+// Local PDF upload state (for bioRxiv papers)
+const localPdfUrl = ref<string | null>(null);
+const localPdfLoading = ref(false);
 
 // Detect paper source from ID format
 // bioRxiv DOIs: 10.1101/YYYY.MM.DD.NNNNNN or just the suffix
@@ -204,8 +244,21 @@ onMounted(async () => {
     console.error('Failed to ensure paper:', e);
   }
 
-  // Fetch discussion count for bioRxiv papers
+  // For bioRxiv papers: load PDF from IndexedDB if available
   if (paperSource.value === 'biorxiv') {
+    localPdfLoading.value = true;
+    try {
+      const storedBlob = await getPdf(externalPaperId.value);
+      if (storedBlob) {
+        localPdfUrl.value = URL.createObjectURL(storedBlob);
+      }
+    } catch (e) {
+      console.error('Failed to load PDF from storage:', e);
+    } finally {
+      localPdfLoading.value = false;
+    }
+
+    // Fetch discussion count
     try {
       const { pubId } = await discussion.getPubIdByPaper({ paperId: externalPaperId.value });
       if (pubId) {
@@ -220,6 +273,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('anchor-focus', onAnchorFocus);
+  // Revoke blob URL to free memory
+  if (localPdfUrl.value) {
+    URL.revokeObjectURL(localPdfUrl.value);
+  }
 });
 
 const id = computed(() => externalPaperId.value);
@@ -237,6 +294,51 @@ function saveToLibrary() {
 
 function zoomIn() { zoom.value = Math.min(zoom.value + 0.1, 3); }
 function zoomOut() { zoom.value = Math.max(zoom.value - 0.1, 0.3); }
+
+// Handle PDF file upload (bioRxiv)
+async function onPdfUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  // Validate it's a PDF
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    alert('Please upload a PDF file');
+    return;
+  }
+
+  try {
+    // Store in IndexedDB for persistence
+    await storePdf(externalPaperId.value, file);
+    
+    // Create blob URL for display
+    if (localPdfUrl.value) {
+      URL.revokeObjectURL(localPdfUrl.value);
+    }
+    localPdfUrl.value = URL.createObjectURL(file);
+  } catch (e) {
+    console.error('Failed to store PDF:', e);
+    alert('Failed to store PDF. Please try again.');
+  }
+
+  // Reset input so same file can be re-selected
+  input.value = '';
+}
+
+// Remove uploaded PDF
+async function removePdf() {
+  if (!confirm('Remove the uploaded PDF? You can upload it again later.')) return;
+  
+  try {
+    await deletePdf(externalPaperId.value);
+    if (localPdfUrl.value) {
+      URL.revokeObjectURL(localPdfUrl.value);
+      localPdfUrl.value = null;
+    }
+  } catch (e) {
+    console.error('Failed to remove PDF:', e);
+  }
+}
 </script>
 
 <style scoped>
@@ -309,14 +411,55 @@ function zoomOut() { zoom.value = Math.max(zoom.value - 0.1, 0.3); }
   gap: 12px;
   justify-content: center;
 }
+/* Upload prompt for bioRxiv */
+.upload-prompt {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.upload-prompt .upload-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+.upload-prompt h3 {
+  margin: 0 0 20px;
+  font-size: 1.35rem;
+  color: #333;
+}
+.upload-steps {
+  text-align: left;
+  margin: 0 auto 24px;
+  padding-left: 24px;
+  max-width: 320px;
+}
+.upload-steps li {
+  margin-bottom: 12px;
+  color: #555;
+  line-height: 1.5;
+}
+.upload-steps .download-link {
+  color: var(--brand);
+  font-weight: 500;
+}
+.upload-btn {
+  display: inline-block;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 10px 24px;
+}
+.upload-btn:hover {
+  opacity: 0.9;
+}
+.privacy-note {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #888;
+}
 .discussion-hint {
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid var(--border);
-}
-.discussion-hint .hint-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
 }
 .discussion-hint p {
   margin: 0;
@@ -324,5 +467,20 @@ function zoomOut() { zoom.value = Math.max(zoom.value - 0.1, 0.3); }
 }
 .discussion-hint strong {
   color: var(--brand);
+}
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.remove-pdf {
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  color: #888;
+  border-color: #ccc;
+}
+.remove-pdf:hover {
+  color: #c00;
+  border-color: #c00;
 }
 </style>
