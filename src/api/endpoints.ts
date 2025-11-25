@@ -264,19 +264,31 @@ export const discussion = {
 };
 
 export const identity = {
-  async addORCID(args: { userId: string; orcid: string }): Promise<void> {
-    await post<{ ok: true }>(`/IdentityVerification/addORCID`, args);
+  async addORCID(args: { session: string; orcid: string }): Promise<{ newORCID: string }> {
+    const data = await post<{ newORCID: string }>(`/IdentityVerification/addORCID`, args);
+    return data;
   },
-  async addBadge(args: { userId: string; badge: string }): Promise<void> {
+  async addBadge(args: { session: string; badge: string }): Promise<void> {
     await post<{ ok: true }>(`/IdentityVerification/addBadge`, args);
   },
-  async get(args: { userId: string }): Promise<{ orcid?: string; affiliation?: string; badges: string[] }> {
+  async get(args: { session: string }): Promise<{ orcid?: string; orcidId?: string; verified?: boolean; affiliation?: string; badges: string[] }> {
     // Sync queries all three and combines them into { orcids, affiliations, badges }
-    const data = await post<{ orcids: Array<{ orcid: { orcid: string } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/_getByUser`, args);
-    const orcid = data.orcids?.[0]?.orcid?.orcid;
+    const data = await post<{ orcids: Array<{ orcid: { _id: string; orcid: string; verified?: boolean } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/_getByUser`, args);
+    const orcidDoc = data.orcids?.[0]?.orcid;
+    const orcid = orcidDoc?.orcid;
+    const orcidId = orcidDoc?._id;
+    const verified = orcidDoc?.verified ?? false;
     const affiliation = data.affiliations?.[0]?.affiliation?.affiliation;
     const badges = data.badges?.map((b) => b.badge.badge) ?? [];
-    return { orcid, affiliation, badges };
+    return { orcid, orcidId, verified, affiliation, badges };
+  },
+  async initiateVerification(args: { orcid: string; redirectUri: string; session: string }): Promise<{ authUrl: string; state: string }> {
+    const data = await post<{ authUrl: string; state: string }>(`/IdentityVerification/initiateORCIDVerification`, args);
+    return data;
+  },
+  async completeVerification(args: { orcid: string; code: string; state: string; redirectUri?: string }): Promise<{ ok: true }> {
+    const data = await post<{ ok: true }>(`/IdentityVerification/completeORCIDVerification`, args);
+    return data;
   },
 };
 
