@@ -18,7 +18,21 @@
 
     <div class="columns">
       <section class="center">
-        <div class="pdf-scroll">
+        <!-- bioRxiv PDFs must be viewed on bioRxiv's site (per their TDM terms) -->
+        <div v-if="paperSource === 'biorxiv'" class="biorxiv-fallback card">
+          <h3>View PDF on bioRxiv</h3>
+          <p>bioRxiv content is available directly from their site.</p>
+          <div class="biorxiv-actions">
+            <a class="primary" :href="externalPdfLink" target="_blank" rel="noreferrer">
+              Open PDF in New Tab
+            </a>
+            <a class="ghost" :href="externalAbsLink" target="_blank" rel="noreferrer">
+              View Abstract on bioRxiv
+            </a>
+          </div>
+        </div>
+        <!-- arXiv PDFs can be displayed inline via proxy -->
+        <div v-else class="pdf-scroll">
           <div class="toolbar">
             <div class="colors">
               <button
