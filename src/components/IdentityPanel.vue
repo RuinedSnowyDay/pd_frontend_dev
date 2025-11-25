@@ -156,6 +156,12 @@ async function loadOrcidData() {
   }
 }
 
+// Get redirect URI consistently - must match what's registered in ORCID
+// Using root path since IdentityPanel is available on all pages
+function getRedirectUri(): string {
+  return `${window.location.origin}/`;
+}
+
 async function onVerifyOrcid() {
   if (!currentOrcidId.value) {
     // If we don't have the ORCID ID, try to get it from the current ORCID string
@@ -176,8 +182,8 @@ async function onVerifyOrcid() {
   verifyMsg.value = '';
   
   try {
-    // Use a fixed redirect URI that matches what's registered in ORCID
-    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    // Use a consistent redirect URI that matches what's registered in ORCID
+    const redirectUri = getRedirectUri();
     const result = await identity.initiateVerification({ 
       orcid: currentOrcidId.value,
       redirectUri,
@@ -203,23 +209,18 @@ async function handleOAuthCallback(code: string, state: string) {
   verifyMsg.value = '';
   
   try {
-    // The backend will look up the ORCID from the state
-    // We need to pass the ORCID ID, but we can get it from currentOrcidId
-    // If we don't have it, we'll need to get it from the backend via the state
-    if (!currentOrcidId.value) {
-      // Try to reload ORCID data first
-      await loadOrcidData();
-    }
+    // First, get the ORCID ID from the OAuth state
+    const orcidData = await identity.getORCIDFromState({ state });
     
-    if (!currentOrcidId.value) {
-      verifyErr.value = 'Could not determine ORCID ID. Please try again.';
+    if (!orcidData.orcid) {
+      verifyErr.value = 'Invalid or expired verification state. Please try again.';
       return;
     }
     
     // Use the same redirect URI that was used in the authorization request
-    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    const redirectUri = getRedirectUri();
     await identity.completeVerification({ 
-      orcid: currentOrcidId.value, 
+      orcid: orcidData.orcid, 
       code, 
       state,
       redirectUri 

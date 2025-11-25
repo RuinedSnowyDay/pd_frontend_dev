@@ -290,6 +290,10 @@ export const identity = {
     const data = await post<{ ok: true }>(`/IdentityVerification/completeORCIDVerification`, args);
     return data;
   },
+  async getORCIDFromState(args: { state: string }): Promise<{ orcid: string }> {
+    const data = await post<{ orcid: string }>(`/IdentityVerification/_getORCIDFromState`, args);
+    return data;
+  },
 };
 
 export const session = {
