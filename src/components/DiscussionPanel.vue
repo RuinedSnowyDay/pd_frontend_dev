@@ -221,7 +221,7 @@ const showDeleteConfirm = ref(false);
 const pendingDeleteThreadId = ref<string | null>(null);
 
 const actions = ref<string[]>([]);
-type ReplyNode = { _id: string; author: string; body: string; children?: ReplyNode[]; deleted?: boolean };
+type ReplyNode = { _id: string; author: string; body: string; anchorId?: string; children?: ReplyNode[]; deleted?: boolean };
 type Thread = { id: string; author: string; body: string; anchorId?: string; replies: ReplyNode[]; deleted?: boolean };
 const threads = ref<Thread[]>([]);
 const anchorFilter = ref('');
@@ -234,9 +234,27 @@ const filteredThreads = computed(() =>
 
 const deletedAnchors = computed(() => {
   const deleted = new Set<string>();
+  
+  // Helper to recursively collect anchorIds from replies
+  function collectReplyAnchors(replies: ReplyNode[]) {
+    for (const r of replies) {
+      if (r.anchorId) {
+        deleted.add(r.anchorId);
+      }
+      if (r.children && r.children.length > 0) {
+        collectReplyAnchors(r.children);
+      }
+    }
+  }
+  
   for (const t of threads.value) {
-    if (t.deleted && t.anchorId) {
-      deleted.add(t.anchorId);
+    if (t.deleted) {
+      // Add thread's own anchor
+      if (t.anchorId) {
+        deleted.add(t.anchorId);
+      }
+      // Also add all reply anchors within this deleted thread
+      collectReplyAnchors(t.replies);
     }
   }
   return deleted;
@@ -323,7 +341,7 @@ async function loadThreads() {
     let nodes: any[] = (await (discussion as any).listRepliesTree({ threadId: t._id, includeDeleted: true })).replies as any[];
     if (!nodes || nodes.length === 0) {
       const flat = await (discussion as any).listReplies({ threadId: t._id, includeDeleted: true });
-      nodes = flat.replies.map((r: any) => ({ _id: r._id, author: r.author, body: r.body, children: [] as any[], deleted: r.deleted ?? false }));
+      nodes = flat.replies.map((r: any) => ({ _id: r._id, author: r.author, body: r.body, anchorId: r.anchorId, children: [] as any[], deleted: r.deleted ?? false }));
     }
     built.push({ id: t._id, author: t.author, body: t.body, anchorId: t.anchorId, replies: nodes as any, deleted: t.deleted });
   }
