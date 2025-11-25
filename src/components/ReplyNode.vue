@@ -1,10 +1,16 @@
 <template>
   <li class="reply" :style="{ marginLeft: (depth * 16) + 'px' }">
-    <div class="meta"><strong>{{ node.author }}</strong></div>
-    <div class="body" v-html="renderBody(node.body)" @click="handleBodyClick"></div>
+    <div class="meta">
+      <strong v-if="!node.deleted">{{ node.author }}</strong>
+      <span v-else class="deleted-author">[deleted]</span>
+    </div>
+    <div class="body" :class="{ deleted: node.deleted }">
+      <div v-if="node.deleted" class="deleted-message">[deleted]</div>
+      <div v-else v-html="renderBody(node.body)" @click="handleBodyClick"></div>
+    </div>
     <div class="actions">
       <button class="ghost small" @click="replying = !replying">Reply</button>
-      <button v-if="sessionStore.userId === node.author" class="ghost small delete" @click="deleteReply">Delete</button>
+      <button v-if="sessionStore.userId === node.author && !node.deleted" class="ghost small delete" @click="deleteReply">Delete</button>
     </div>
     <div v-if="replying" class="compose-area">
       <div class="editor-toolbar">
@@ -301,6 +307,9 @@ function formatReply(kind: FormatKind) {
 .reply { border-left: 2px solid var(--border); padding-left: 8px; }
 .meta { font-size: 12px; color: #444; }
 .body { margin: 4px 0 6px; }
+.body.deleted { opacity: 0.6; font-style: italic; }
+.deleted-message { color: #888; font-size: 12px; }
+.deleted-author { color: #888; font-style: italic; }
 .actions { display: flex; gap: 6px; }
 .small { padding: 4px 8px; font-size: 12px; }
 .primary { background: var(--brand); color: #fff; border: 1px solid var(--brand); border-radius: 6px; }

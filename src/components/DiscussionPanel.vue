@@ -97,7 +97,7 @@
             >{{ expanded[t.id] ? 'Hide replies' : 'View replies' }}</a>
             <a href="#" class="reply-link" @click.prevent="toggleReply(t.id)">Reply</a>
             <a
-              v-if="session.userId === t.author"
+              v-if="session.userId === t.author && !t.deleted"
               href="#"
               class="delete-link"
               @click.prevent="deleteThread(t.id)"
@@ -105,7 +105,10 @@
               Delete
             </a>
           </div>
-          <div class="body" v-html="renderBody(t.body)" @click="handleBodyClick"></div>
+          <div class="body" :class="{ deleted: t.deleted }">
+            <div v-if="t.deleted" class="deleted-message">[deleted]</div>
+            <div v-else v-html="renderBody(t.body)" @click="handleBodyClick"></div>
+          </div>
           <div v-if="replyThreadId === t.id" class="compose-thread-reply">
             <div class="editor-toolbar">
               <button class="icon-btn" type="button" @click="formatReply('bold')"><strong>B</strong></button>
@@ -175,6 +178,10 @@ import { renderMarkdown, buildBodyWithImages } from '@/utils/markdown';
 
 const props = defineProps<{ paperId: string | null; anchorFilterProp?: string | null }>();
 
+const emit = defineEmits<{
+  (e: 'deletedAnchorsChanged', anchors: Set<string>): void;
+}>();
+
 const session = useSessionStore();
 const pubId = ref<string | null>(null);
 const pubOpened = ref(false);
@@ -202,8 +209,8 @@ const errorReply = ref('');
 const replyMsg = ref('');
 
 const actions = ref<string[]>([]);
-type ReplyNode = { _id: string; author: string; body: string; children?: ReplyNode[] };
-type Thread = { id: string; author: string; body: string; anchorId?: string; replies: ReplyNode[] };
+type ReplyNode = { _id: string; author: string; body: string; children?: ReplyNode[]; deleted?: boolean };
+type Thread = { id: string; author: string; body: string; anchorId?: string; replies: ReplyNode[]; deleted?: boolean };
 const threads = ref<Thread[]>([]);
 const anchorFilter = ref('');
 const expanded = ref<Record<string, boolean>>({});
@@ -212,6 +219,16 @@ const filteredThreads = computed(() =>
     ? threads.value.filter(t => t.anchorId === (props.anchorFilterProp ?? anchorFilter.value))
     : threads.value
 );
+
+const deletedAnchors = computed(() => {
+  const deleted = new Set<string>();
+  for (const t of threads.value) {
+    if (t.deleted && t.anchorId) {
+      deleted.add(t.anchorId);
+    }
+  }
+  return deleted;
+});
 
 const threadTextarea = ref<HTMLTextAreaElement | null>(null);
 const replyTextarea = ref<HTMLTextAreaElement | null>(null);
@@ -284,22 +301,29 @@ function toggleExpanded(id: string) {
 async function loadThreads() {
   if (!pubId.value) { threads.value = []; return; }
   const activeFilter = (props.anchorFilterProp ?? anchorFilter.value) || undefined;
-  const { threads: list } = await discussion.listThreads({ pubId: pubId.value, anchorId: activeFilter });
+  // Use loose typing here to avoid TS friction; backend supports includeDeleted.
+  const { threads: list } = await (discussion as any).listThreads({ pubId: pubId.value, anchorId: activeFilter, includeDeleted: true });
   console.log('[DiscussionPanel] Loaded threads', list);
   console.log('[DiscussionPanel] Current user ID:', session.userId);
   const built: Thread[] = [];
   for (const t of list) {
     // Prefer the tree API; fall back to flat list if tree is empty for any reason.
-    let nodes: any[] = (await discussion.listRepliesTree({ threadId: t._id })).replies as any[];
+    let nodes: any[] = (await (discussion as any).listRepliesTree({ threadId: t._id, includeDeleted: true })).replies as any[];
     if (!nodes || nodes.length === 0) {
-      const flat = await discussion.listReplies({ threadId: t._id });
-      nodes = flat.replies.map(r => ({ _id: r._id, author: r.author, body: r.body, children: [] as any[] }));
+      const flat = await (discussion as any).listReplies({ threadId: t._id, includeDeleted: true });
+      nodes = flat.replies.map((r: any) => ({ _id: r._id, author: r.author, body: r.body, children: [] as any[], deleted: r.deleted ?? false }));
     }
-    built.push({ id: t._id, author: t.author, body: t.body, anchorId: t.anchorId, replies: nodes as any });
+    built.push({ id: t._id, author: t.author, body: t.body, anchorId: t.anchorId, replies: nodes as any, deleted: t.deleted });
   }
   threads.value = built;
   // Note: expanded state is preserved across reloads (not reset)
+  // Emit deleted anchors for highlight styling
+  emit('deletedAnchorsChanged', deletedAnchors.value);
 }
+
+watch(deletedAnchors, () => {
+  emit('deletedAnchorsChanged', deletedAnchors.value);
+}, { deep: true });
 
 async function ensurePub() {
   if (!props.paperId) return;
@@ -552,7 +576,23 @@ async function deleteThread(threadId: string) {
   if (!pubId.value || !session.token) return;
   if (!confirm('Delete this thread and its replies?')) return;
   try {
+    // Remember the anchor for visual highlight updates
+    const t = threads.value.find((th) => th.id === threadId);
+    const aid = t?.anchorId;
+
     await discussion.deleteThread({ threadId, session: session.token });
+
+    // Notify PDF annotator so it can stripe the associated highlight
+    if (aid) {
+      try {
+        window.dispatchEvent(
+          new CustomEvent('anchor-deleted-visual', { detail: aid }),
+        );
+      } catch {
+        // ignore
+      }
+    }
+
     await loadThreads();
   } catch (e: any) {
     alert(e?.message ?? 'Failed to delete thread');
@@ -614,6 +654,8 @@ button:disabled { opacity: 0.6; }
 .small { padding: 4px 8px; font-size: 12px; }
 .anchor { background: var(--chip-bg); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; font-size: 12px; }
 .body { margin: 6px 0; }
+.body.deleted { opacity: 0.6; font-style: italic; }
+.deleted-message { color: #888; font-size: 12px; }
 /* Deep selector because v-html renders dynamic content */
 .body :deep(.post-image) {
   display: inline-block;

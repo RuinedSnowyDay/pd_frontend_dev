@@ -1,4 +1,7 @@
 import MarkdownIt from 'markdown-it';
+// katex plugin has no official types; rely on local .d.ts shim
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import markdownItKatex from '@iktakahiro/markdown-it-katex';
 
 // Shared markdown renderer with LaTeX support, used for both posts and previews.

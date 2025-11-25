@@ -60,6 +60,11 @@ const props = defineProps<{
     'self' | 'ancestor' | 'descendant' | 'other'
   >;
   /**
+   * Optional set of anchor IDs that are associated with deleted threads.
+   * Highlights with these anchor IDs will show diagonal stripes.
+   */
+  deletedAnchors?: Set<string>;
+  /**
    * When true, highlights become clickable and we emit
    * 'highlightClicked' with the highlight id. (Not used on
    * annotate-test right now, but kept for future.)
@@ -80,6 +85,7 @@ interface Highlight {
   rects: HighlightRect[]; // Normalized 0-1
   color: string;
   text?: string;
+  pending?: boolean; // True if highlight is pending confirmation (can be deleted)
 }
 
 const emit = defineEmits<{
@@ -99,6 +105,8 @@ let renderToken = 0;
 
 // Highlights state
 const highlights = ref<Highlight[]>([]);
+// Track anchors whose threads have been deleted (for visual stripes)
+const deletedAnchorIds = new Set<string>();
 const sessionStore = useSessionStore();
 
 // Selection state
@@ -106,7 +114,7 @@ const showPopup = ref(false);
 const popupX = ref(0);
 const popupY = ref(0);
 let pendingSelection:
-  | { pageIndex: number; rects: HighlightRect[]; text: string }
+  | { pageIndex: number; rects: HighlightRect[]; text: string; tempHighlightId?: string }
   | null = null;
 let boxDrawing:
   | {
@@ -384,6 +392,8 @@ function drawHighlightsForPage(pageIndex: number) {
     if (vis === 'self') alpha = 0.6;
     else if (vis === 'ancestor') alpha = 0.4;
     else if (vis === 'descendant') alpha = 0.3;
+    // Pending highlights are more visible
+    if (h.pending) alpha = 0.4;
 
     for (const r of h.rects) {
       const div = document.createElement('div');
@@ -395,6 +405,12 @@ function drawHighlightsForPage(pageIndex: number) {
       div.style.backgroundColor = withAlpha(h.color, alpha);
       div.style.border = `1px solid ${darken(h.color)}`;
       div.style.boxSizing = 'border-box';
+      
+      // Add dashed border for pending highlights
+      if (h.pending) {
+        div.style.borderStyle = 'dashed';
+        div.dataset.highlightId = h.id; // Store ID for deletion
+      }
 
       if (props.highlightClickMode) {
         div.style.cursor = 'pointer';
@@ -402,6 +418,28 @@ function drawHighlightsForPage(pageIndex: number) {
           ev.stopPropagation();
           emit('highlightClicked', h.id);
         });
+      }
+
+      // Add delete button only for pending highlights (before posting)
+      if (h.pending) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'hl-delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = 'Delete highlight';
+        deleteBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          deletePendingHighlight(h.id);
+        });
+        div.appendChild(deleteBtn);
+        div.style.position = 'relative';
+      }
+
+      // Add diagonal stripes for deleted anchors (threads)
+      if (
+        (props.deletedAnchors && props.deletedAnchors.has(h.id)) ||
+        deletedAnchorIds.has(h.id)
+      ) {
+        div.classList.add('deleted-anchor');
       }
 
       overlay.appendChild(div);
@@ -600,6 +638,20 @@ function finishBoxDrawing(e: MouseEvent) {
 
   const rects: HighlightRect[] = [{ x, y, w: rw, h: rh }];
 
+  // Create a temporary pending highlight that's visible immediately
+  const tempId = 'pending-' + Date.now().toString(36);
+  const pendingHighlight: Highlight = {
+    id: tempId,
+    pageIndex,
+    rects,
+    color: props.activeColor,
+    text: '',
+    pending: true,
+  };
+
+  highlights.value.push(pendingHighlight);
+  drawHighlightsForPage(pageIndex);
+
   popupX.value = e.clientX;
   popupY.value = e.clientY + 5;
 
@@ -607,12 +659,19 @@ function finishBoxDrawing(e: MouseEvent) {
     pageIndex,
     rects,
     text: '',
+    tempHighlightId: tempId, // Track which highlight to replace/remove
   };
   showPopup.value = true;
 }
 
 function confirmHighlight() {
   if (!pendingSelection) return;
+
+  // Remove pending highlight if it exists
+  if (pendingSelection.tempHighlightId) {
+    const idx = highlights.value.findIndex(h => h.id === pendingSelection!.tempHighlightId);
+    if (idx >= 0) highlights.value.splice(idx, 1);
+  }
 
   const highlight: Highlight = {
     id: Date.now().toString(36),
@@ -636,8 +695,32 @@ function confirmHighlight() {
   pendingSelection = null;
 }
 
+function deleteHighlightById(highlightId: string) {
+  const idx = highlights.value.findIndex(h => h.id === highlightId);
+  if (idx >= 0) {
+    const h = highlights.value[idx];
+    highlights.value.splice(idx, 1);
+    drawHighlightsForPage(h.pageIndex);
+  }
+}
+
+function deletePendingHighlight(highlightId: string) {
+  deleteHighlightById(highlightId);
+  // If this was the pending selection, clear it
+  if (pendingSelection?.tempHighlightId === highlightId) {
+    showPopup.value = false;
+    pendingSelection = null;
+  }
+}
+
 async function confirmPrompt() {
   if (!pendingSelection) return;
+
+  // Remove pending highlight if it exists
+  if (pendingSelection.tempHighlightId) {
+    const idx = highlights.value.findIndex(h => h.id === pendingSelection!.tempHighlightId);
+    if (idx >= 0) highlights.value.splice(idx, 1);
+  }
 
   const { pageIndex, rects, text } = pendingSelection;
 
@@ -725,15 +808,46 @@ async function confirmPrompt() {
   pendingSelection = null;
 }
 
+function cleanupPendingHighlight() {
+  if (pendingSelection?.tempHighlightId) {
+    deletePendingHighlight(pendingSelection.tempHighlightId);
+  }
+  pendingSelection = null;
+  showPopup.value = false;
+}
+
+function handleClickOutside(e: MouseEvent) {
+  if (showPopup.value && pendingSelection) {
+    const popup = document.querySelector('.selection-popup');
+    if (popup && !popup.contains(e.target as Node)) {
+      cleanupPendingHighlight();
+    }
+  }
+}
+
+function onAnchorDeletedVisual(e: Event) {
+  const custom = e as CustomEvent<string>;
+  const anchorId = custom.detail;
+  if (!anchorId) return;
+  deletedAnchorIds.add(anchorId);
+  const affected = highlights.value.filter((h) => h.id === anchorId);
+  const pages = new Set(affected.map((h) => h.pageIndex));
+  for (const pi of pages) {
+    drawHighlightsForPage(pi);
+  }
+}
+
 onMounted(() => {
   cancelled = false;
   loadPdf();
   document.addEventListener('mouseup', onMouseUp);
+  window.addEventListener('anchor-deleted-visual', onAnchorDeletedVisual);
 });
 
 onBeforeUnmount(() => {
   cancelled = true;
   document.removeEventListener('mouseup', onMouseUp);
+  window.removeEventListener('anchor-deleted-visual', onAnchorDeletedVisual);
 });
 
 watch(
@@ -789,6 +903,42 @@ watch(
   outline: 1px solid rgba(255, 200, 0, 0.9);
   border-radius: 2px;
   pointer-events: none;
+}
+:global(.hl-delete-btn) {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff4444;
+  color: white;
+  border: 2px solid white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  padding: 0;
+  line-height: 1;
+}
+:global(.hl-delete-btn:hover) {
+  background: #cc0000;
+  transform: scale(1.1);
+}
+:global(.hl.deleted-anchor) {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(0, 0, 0, 0.1) 10px,
+    rgba(0, 0, 0, 0.1) 20px
+  );
+  opacity: 0.5;
 }
 .selection-popup {
   position: fixed;
