@@ -431,7 +431,9 @@ function drawHighlightsForPage(pageIndex: number) {
           deletePendingHighlight(h.id);
         });
         div.appendChild(deleteBtn);
-        div.style.position = 'relative';
+        // Keep the highlight absolutely positioned (from CSS) so its
+        // box stays aligned with the normalized coordinates even for
+        // pending highlights.
       }
 
       // Add diagonal stripes for deleted anchors (threads)
