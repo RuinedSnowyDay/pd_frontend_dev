@@ -20,15 +20,24 @@
       <section class="center">
         <!-- bioRxiv PDFs must be viewed on bioRxiv's site (per their TDM terms) -->
         <div v-if="paperSource === 'biorxiv'" class="biorxiv-fallback card">
-          <h3>View PDF on bioRxiv</h3>
-          <p>bioRxiv content is available directly from their site.</p>
+          <h3>bioRxiv Paper</h3>
+          <p>View the PDF on bioRxiv, then join the discussion here.</p>
           <div class="biorxiv-actions">
             <a class="primary" :href="externalPdfLink" target="_blank" rel="noreferrer">
-              Open PDF in New Tab
+              Open PDF
             </a>
             <a class="ghost" :href="externalAbsLink" target="_blank" rel="noreferrer">
-              View Abstract on bioRxiv
+              View Abstract
             </a>
+          </div>
+          <div class="discussion-hint">
+            <div class="hint-icon">💬</div>
+            <p v-if="discussionCount > 0">
+              <strong>{{ discussionCount }}</strong> discussion{{ discussionCount === 1 ? '' : 's' }} in the sidebar
+            </p>
+            <p v-else>
+              Start a discussion in the sidebar →
+            </p>
           </div>
         </div>
         <!-- arXiv PDFs can be displayed inline via proxy -->
@@ -65,7 +74,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, reactive, ref, computed } from 'vue';
 import PdfAnnotator from '@/components/PdfAnnotator.vue';
-import { paper } from '@/api/endpoints';
+import { paper, discussion } from '@/api/endpoints';
 import { BASE_URL } from '@/api/client';
 
 type PaperSource = 'arxiv' | 'biorxiv';
@@ -79,6 +88,7 @@ const header = reactive<{ title?: string; doi?: string; link?: string; authors?:
 import { useSessionStore } from '@/stores/session';
 const session = useSessionStore();
 const banner = ref('');
+const discussionCount = ref(0);
 
 // Detect paper source from ID format
 // bioRxiv DOIs: 10.1101/YYYY.MM.DD.NNNNNN or just the suffix
@@ -193,6 +203,19 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to ensure paper:', e);
   }
+
+  // Fetch discussion count for bioRxiv papers
+  if (paperSource.value === 'biorxiv') {
+    try {
+      const { pubId } = await discussion.getPubIdByPaper({ paperId: externalPaperId.value });
+      if (pubId) {
+        const { threads } = await discussion.listThreads({ pubId });
+        discussionCount.value = threads.length;
+      }
+    } catch {
+      // Ignore - discussion count is optional
+    }
+  }
 });
 
 onBeforeUnmount(() => {
@@ -285,5 +308,21 @@ function zoomOut() { zoom.value = Math.max(zoom.value - 0.1, 0.3); }
   display: flex;
   gap: 12px;
   justify-content: center;
+}
+.discussion-hint {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.discussion-hint .hint-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.discussion-hint p {
+  margin: 0;
+  color: #555;
+}
+.discussion-hint strong {
+  color: var(--brand);
 }
 </style>
