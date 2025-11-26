@@ -2,6 +2,7 @@
   <nav class="leftnav">
     <router-link class="item" :class="{active: at('/') }" to="/">Home</router-link>
     <router-link class="item" :class="{active: at('/my') }" to="/my">My Papers</router-link>
+    <router-link class="item" :class="{active: at('/groups') }" to="/groups">Groups</router-link>
     <!-- Explore removed -->
   </nav>
 </template>
