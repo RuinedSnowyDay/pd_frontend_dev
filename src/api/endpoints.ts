@@ -236,20 +236,50 @@ export const discussion = {
     return { replyId: data.result };
   },
   async getPubIdByPaper(args: { paperId: string }): Promise<{ pubId: string | null }> {
-    const data = await post<
-      Array<{ result: string | null }>
-    >(`/DiscussionPub/_getPubIdByPaper`, args);
-    const result = data[0]?.result ?? null;
-    return { pubId: result };
+    const data = await post<{ result: string | null }>(
+      `/DiscussionPub/getPubIdByPaper`,
+      args,
+    );
+    return { pubId: data.result };
   },
-  async listThreads(args: { pubId: string; anchorId?: string; includeDeleted?: boolean }): Promise<{ threads: Array<{ _id: string; author: string; body: string; anchorId?: string; createdAt: number; editedAt?: number; deleted?: boolean }>}> {
-    // Query returns fan-out format: Array<{ thread: Thread }>
-    const data = await post<
-      Array<{ thread: { _id: string; author: string; title?: string; body: string; anchorId?: string; createdAt: number; editedAt?: number; deleted?: boolean } }>
-    >(`/DiscussionPub/_listThreads`, { ...args, includeDeleted: args.includeDeleted ?? true });
-    // Sync collects threads into { threads: [...] } response
-    const response = data as any;
-    const threads = response.threads ?? data.map((r) => r.thread);
+  async listThreads(
+    args: {
+      pubId: string;
+      anchorId?: string;
+      includeDeleted?: boolean;
+    },
+  ): Promise<{
+    threads: Array<{
+      _id: string;
+      author: string;
+      title?: string;
+      body: string;
+      anchorId?: string;
+      createdAt: number;
+      editedAt?: number;
+      deleted?: boolean;
+    }>;
+  }> {
+    // Sync collects threads into { threads: [{ thread: ThreadDoc }, ...] } response
+    const data = await post<{
+      threads: Array<{
+        thread: {
+          _id: string;
+          author: string;
+          title?: string;
+          body: string;
+          anchorId?: string;
+          createdAt: number;
+          editedAt?: number;
+          deleted?: boolean;
+        };
+      }>;
+    }>(`/DiscussionPub/listThreads`, {
+      ...args,
+      includeDeleted: args.includeDeleted ?? true,
+    });
+    // Unwrap threads from { thread: ThreadDoc } format
+    const threads = data.threads.map((t) => t.thread);
     return { threads };
   },
   async deleteThread(args: { threadId: string; session?: string }): Promise<{ ok: true }> {
@@ -260,24 +290,54 @@ export const discussion = {
     const data = await post<{ ok: true }>(`/DiscussionPub/deleteReply`, args);
     return data;
   },
-  async listReplies(args: { threadId: string; includeDeleted?: boolean }): Promise<{ replies: Array<{ _id: string; author: string; body: string; createdAt: number; editedAt?: number; deleted?: boolean }>}> {
-    // Query returns fan-out format: Array<{ reply: Reply }>
-    const data = await post<
-      Array<{ reply: { _id: string; author: string; body: string; anchorId?: string; parentId?: string; createdAt: number; editedAt?: number; deleted?: boolean } }>
-    >(`/DiscussionPub/_listReplies`, { ...args, includeDeleted: args.includeDeleted ?? true });
-    // Sync collects replies into { replies: [...] } response
-    const response = data as any;
-    const replies = response.replies ?? data.map((r) => r.reply);
+  async listReplies(
+    args: { threadId: string; includeDeleted?: boolean },
+  ): Promise<{
+    replies: Array<{
+      _id: string;
+      author: string;
+      body: string;
+      anchorId?: string;
+      parentId?: string;
+      createdAt: number;
+      editedAt?: number;
+      deleted?: boolean;
+    }>;
+  }> {
+    // Sync collects replies into { replies: [{ reply: ReplyDoc }, ...] } response
+    const data = await post<{
+      replies: Array<{
+        reply: {
+          _id: string;
+          author: string;
+          body: string;
+          anchorId?: string;
+          parentId?: string;
+          createdAt: number;
+          editedAt?: number;
+          deleted?: boolean;
+        };
+      }>;
+    }>(`/DiscussionPub/listReplies`, {
+      ...args,
+      includeDeleted: args.includeDeleted ?? true,
+    });
+    // Unwrap replies from { reply: ReplyDoc } format
+    const replies = data.replies.map((r) => r.reply);
     return { replies };
   },
-  async listRepliesTree(args: { threadId: string; includeDeleted?: boolean }): Promise<{ replies: Array<any> }> {
-    // Query returns fan-out format: Array<{ reply: ReplyTree }>
-    const data = await post<
-      Array<{ reply: any }>
-    >(`/DiscussionPub/_listRepliesTree`, { ...args, includeDeleted: args.includeDeleted ?? true });
-    // Sync collects replies into { replies: [...] } response
-    const response = data as any;
-    const replies = response.replies ?? data.map((r) => r.reply);
+  async listRepliesTree(
+    args: { threadId: string; includeDeleted?: boolean },
+  ): Promise<{ replies: Array<any> }> {
+    // Sync collects replies into { replies: [{ reply: ReplyTreeNode }, ...] } response
+    const data = await post<{
+      replies: Array<{ reply: any }>;
+    }>(`/DiscussionPub/listRepliesTree`, {
+      ...args,
+      includeDeleted: args.includeDeleted ?? true,
+    });
+    // Unwrap replies from { reply: ReplyTreeNode } format
+    const replies = data.replies.map((r) => r.reply);
     return { replies };
   },
 };
