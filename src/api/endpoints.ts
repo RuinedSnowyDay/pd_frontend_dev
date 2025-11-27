@@ -157,9 +157,10 @@ export const anchored = {
     const internalPaperId = ensured.id;
 
     // Load contexts for this paper (uses external paperId)
-    const ctxData = await post<
-      Array<{
-        filteredContexts: Array<{
+    // Sync returns { filteredContexts: [{ filteredContext: ContextDoc }, ...] }
+    const ctxData = await post<{
+      filteredContexts: Array<{
+        filteredContext: {
           _id: string;
           paperId: string;
           author: string;
@@ -167,10 +168,11 @@ export const anchored = {
           kind?: AnchorKind;
           parentContext?: string;
           createdAt: number;
-        }>;
-      }>
-    >(`/HighlightedContext/_getFilteredContexts`, { paperIds: [paperId] });
-    const contexts = ctxData[0]?.filteredContexts ?? [];
+        };
+      }>;
+    }>(`/HighlightedContext/getFilteredContexts`, { paperIds: [paperId] });
+    // Extract contexts from the wrapped format
+    const contexts = ctxData.filteredContexts?.map((c) => c.filteredContext) ?? [];
     if (!contexts.length) return { anchors: [] };
 
     // Load all highlights for this paper (uses internal _id)
