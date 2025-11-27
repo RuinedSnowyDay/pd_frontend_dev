@@ -170,7 +170,7 @@ export const anchored = {
           createdAt: number;
         };
       }>;
-    }>(`/HighlightedContext/getFilteredContexts`, { paperIds: [paperId] });
+    }>(`/HighlightedContext/getFilteredContexts`, { paperIds: [paperId], authors: null });
     // Extract contexts from the wrapped format
     const contexts = ctxData.filteredContexts?.map((c) => c.filteredContext) ?? [];
     if (!contexts.length) return { anchors: [] };
