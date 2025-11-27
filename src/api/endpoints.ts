@@ -372,8 +372,8 @@ export const groups = {
     const data = await post<{ invitations: Array<{ _id: string; groupId: string; inviter: string; invitee: string; message?: string; createdAt: number }> }>(`/AccessControl/listPendingInvitationsByUser`, args);
     return data;
   },
-  async getInvitation(args: { invitation: string }): Promise<{ invitations: Array<{ _id: string; groupId: string; inviter: string; invitee: string; message?: string; createdAt: number }> }> {
-    const data = await post<{ invitations: Array<{ _id: string; groupId: string; inviter: string; invitee: string; message?: string; createdAt: number }> }>(`/AccessControl/getInvitation`, args);
+  async getInvitation(args: { invitation: string }): Promise<{ invitation: { _id: string; groupId: string; inviter: string; invitee: string; message?: string; createdAt: number } | null }> {
+    const data = await post<{ invitation: { _id: string; groupId: string; inviter: string; invitee: string; message?: string; createdAt: number } | null }>(`/AccessControl/getInvitation`, args);
     return data;
   },
   async revokeMembership(args: { session: string; membership: string }): Promise<{ ok: true }> {
