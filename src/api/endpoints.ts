@@ -354,7 +354,7 @@ export const identity = {
   },
   async get(args: { session: string }): Promise<{ orcid?: string; orcidId?: string; verified?: boolean; affiliation?: string; badges: string[] }> {
     // Sync queries all three and combines them into { orcids, affiliations, badges }
-    const data = await post<{ orcids: Array<{ orcid: { _id: string; orcid: string; verified?: boolean } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/_getByUser`, args);
+    const data = await post<{ orcids: Array<{ orcid: { _id: string; orcid: string; verified?: boolean } }>; affiliations: Array<{ affiliation: { affiliation: string } }>; badges: Array<{ badge: { badge: string } }> }>(`/IdentityVerification/getByUser`, args);
     const orcidDoc = data.orcids?.[0]?.orcid;
     const orcid = orcidDoc?.orcid;
     const orcidId = orcidDoc?._id;
@@ -371,8 +371,8 @@ export const identity = {
     const data = await post<{ ok: true }>(`/IdentityVerification/completeORCIDVerification`, args);
     return data;
   },
-  async getORCIDFromState(args: { state: string }): Promise<{ orcid: string }> {
-    const data = await post<{ orcid: string }>(`/IdentityVerification/_getORCIDFromState`, args);
+  async getORCIDFromState(args: { state: string }): Promise<{ orcid: string | null }> {
+    const data = await post<{ orcid: string | null }>(`/IdentityVerification/getORCIDFromState`, args);
     return data;
   },
 };
