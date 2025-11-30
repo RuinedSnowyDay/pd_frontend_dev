@@ -9,14 +9,14 @@
       <aside class="sidebar-right"><RightSidebar /></aside>
     </div>
   </div>
-  </template>
+</template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { post } from './api/client';
-import TopNav from '@/components/TopNav.vue';
-import LeftNav from '@/components/LeftNav.vue';
-import RightSidebar from '@/components/RightSidebar.vue';
+import { ref, onMounted } from "vue";
+import { post } from "./api/client";
+import TopNav from "@/components/TopNav.vue";
+import LeftNav from "@/components/LeftNav.vue";
+import RightSidebar from "@/components/RightSidebar.vue";
 
 const backendOk = ref(true);
 const currentPaperId = ref<string | null>(null);
@@ -36,22 +36,61 @@ function onSearch(q: string) {
   // heuristics: treat as id/doi
   window.location.assign(`/paper/${encodeURIComponent(q)}`);
 }
- </script>
+</script>
 
 <style scoped>
-.app { display: flex; flex-direction: column; height: 100vh; }
-.layout { display: grid; grid-template-columns: 260px 1fr 320px; gap: 16px; padding: 16px; flex: 1; overflow: auto; }
-.sidebar-left { background: #fafafa; border-right: 1px solid var(--border); }
-.sidebar-right { background: #fafafa; border-left: 1px solid var(--border); }
-.content { max-width: 1600px; margin: 0 auto; }
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f9fafb;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 170px 1fr 500px;
+  gap: 10px;
+  padding: 20px;
+  flex: 1;
+  overflow: auto;
+}
+.sidebar-left {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  padding: 16px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  min-width: 0;
+}
+.sidebar-right {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+.content {
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+}
 @media (max-width: 1100px) {
-  .layout { grid-template-columns: 220px 1fr; }
-  .sidebar-right { display: none; }
+  .layout {
+    grid-template-columns: 240px 1fr;
+    gap: 16px;
+  }
+  .sidebar-right {
+    display: none;
+  }
 }
 @media (max-width: 780px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar-left { display: none; }
+  .layout {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+  .sidebar-left {
+    display: none;
+  }
 }
 </style>
-
-

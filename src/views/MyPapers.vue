@@ -46,7 +46,7 @@ watch(() => store.userId, load);
 </script>
 
 <style scoped>
-.cards { display: grid; gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 16px; }
 .title { font-family: var(--font-serif); }
 .ghost { background: #fff; color: var(--brand); border: 1px solid var(--brand); border-radius: 6px; padding: 6px 10px; }

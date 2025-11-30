@@ -46,11 +46,37 @@ watch(() => route.fullPath, sync);
 </script>
 
 <style scoped>
-.rs { display: grid; gap: 12px; padding: 12px; }
-.card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-.card:hover { box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
-.list { list-style: none; padding-left: 0; display: grid; gap: 6px; }
-small { color: #666; }
+.rs {
+  display: grid;
+  gap: 16px;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s ease;
+}
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+h3 {
+  margin: 0 0 12px 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--brand);
+}
+.list {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 8px;
+}
+small {
+  color: var(--muted);
+  font-style: italic;
+}
 </style>
 
 

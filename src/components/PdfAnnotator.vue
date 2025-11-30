@@ -2,12 +2,12 @@
   <div class="pdf-annotator">
     <div v-if="error" class="error">
       {{ error }}
-      <br>
+      <br />
       <a :href="src" target="_blank">Try opening directly</a>
     </div>
     <div class="viewer">
       <div v-if="loading" class="loading">
-        Loading PDF... <br>
+        Loading PDF... <br />
         <small>{{ src }}</small>
       </div>
       <div ref="pagesContainer" class="pages"></div>
@@ -30,16 +30,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount, reactive } from 'vue';
-import * as pdfjsLib from 'pdfjs-dist';
-import 'pdfjs-dist/web/pdf_viewer.css';
-import { PDFPageView, EventBus } from 'pdfjs-dist/web/pdf_viewer';
-import { anchored } from '@/api/endpoints';
-import { useSessionStore } from '@/stores/session';
+import { onMounted, ref, watch, onBeforeUnmount, reactive } from "vue";
+import * as pdfjsLib from "pdfjs-dist";
+import "pdfjs-dist/web/pdf_viewer.css";
+import { PDFPageView, EventBus } from "pdfjs-dist/web/pdf_viewer";
+import { anchored } from "@/api/endpoints";
+import { useSessionStore } from "@/stores/session";
 
 // Setup worker (same as PdfView)
 // @ts-ignore
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min.js?url';
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.js?url";
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerSrc;
 
 const props = defineProps<{
@@ -57,7 +57,7 @@ const props = defineProps<{
    */
   highlightVisibility?: Record<
     string,
-    'self' | 'ancestor' | 'descendant' | 'other'
+    "self" | "ancestor" | "descendant" | "other"
   >;
   /**
    * Optional set of anchor IDs that are associated with deleted threads.
@@ -90,13 +90,13 @@ interface Highlight {
 }
 
 const emit = defineEmits<{
-  (e: 'highlight', highlight: Highlight): void;
-  (e: 'highlightClicked', highlightId: string): void;
+  (e: "highlight", highlight: Highlight): void;
+  (e: "highlightClicked", highlightId: string): void;
 }>();
 
 const pagesContainer = ref<HTMLElement | null>(null);
 const loading = ref(false);
-const error = ref('');
+const error = ref("");
 
 // Rendering state (mirrors PdfView)
 let pageWrappers: HTMLElement[] = [];
@@ -116,27 +116,28 @@ const sessionStore = useSessionStore();
 const showPopup = ref(false);
 const popupX = ref(0);
 const popupY = ref(0);
-let pendingSelection:
-  | { pageIndex: number; rects: HighlightRect[]; text: string; tempHighlightId?: string }
-  | null = null;
-let boxDrawing:
-  | {
-      pageIndex: number;
-      startX: number;
-      startY: number;
-      wrapper: HTMLElement;
-      preview: HTMLElement;
-    }
-  | null = null;
+let pendingSelection: {
+  pageIndex: number;
+  rects: HighlightRect[];
+  text: string;
+  tempHighlightId?: string;
+} | null = null;
+let boxDrawing: {
+  pageIndex: number;
+  startX: number;
+  startY: number;
+  wrapper: HTMLElement;
+  preview: HTMLElement;
+} | null = null;
 
 function withAlpha(color: string, alpha: number): string {
-  if (color.startsWith('#')) {
+  if (color.startsWith("#")) {
     let hex = color.slice(1);
     if (hex.length === 3) {
       hex = hex
-        .split('')
+        .split("")
         .map((c) => c + c)
-        .join('');
+        .join("");
     }
     const num = parseInt(hex, 16);
     const r = (num >> 16) & 255;
@@ -148,19 +149,20 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 function darken(color: string, factor = 0.6): string {
-  if (color.startsWith('#')) {
+  if (color.startsWith("#")) {
     let hex = color.slice(1);
     if (hex.length === 3) {
       hex = hex
-        .split('')
+        .split("")
         .map((c) => c + c)
-        .join('');
+        .join("");
     }
     const num = parseInt(hex, 16);
     const r = (num >> 16) & 255;
     const g = (num >> 8) & 255;
     const b = num & 255;
-    const scale = (v: number) => Math.max(0, Math.min(255, Math.round(v * factor)));
+    const scale = (v: number) =>
+      Math.max(0, Math.min(255, Math.round(v * factor)));
     return `rgb(${scale(r)}, ${scale(g)}, ${scale(b)})`;
   }
   return color;
@@ -214,17 +216,18 @@ function mergeRects(rects: HighlightRect[]): HighlightRect[] {
   return merged;
 }
 
-function parseRef(
-  ref: string,
-): { page?: number; rects?: Array<{ x: number; y: number; w: number; h: number }> } {
+function parseRef(ref: string): {
+  page?: number;
+  rects?: Array<{ x: number; y: number; w: number; h: number }>;
+} {
   try {
     const m = ref.match(/p=(\d+)/);
     const page = m ? parseInt(m[1], 10) : undefined;
-    const rectsPart = ref.split('rects=')[1];
+    const rectsPart = ref.split("rects=")[1];
     const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
     if (rectsPart) {
-      for (const seg of rectsPart.split('|')) {
-        const parts = seg.split(',').map((s) => parseFloat(s));
+      for (const seg of rectsPart.split("|")) {
+        const parts = seg.split(",").map((s) => parseFloat(s));
         if (parts.length === 4 && parts.every((n) => !Number.isNaN(n))) {
           const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
           rects.push({
@@ -248,10 +251,17 @@ async function loadExistingAnchors() {
     const { anchors } = await anchored.listByPaper({ paperId: props.paperId });
     const loaded: Highlight[] = [];
     for (const a of anchors) {
-      const { page, rects } = parseRef(a.ref || '');
+      const { page, rects } = parseRef(a.ref || "");
       if (page == null || !rects || rects.length === 0) continue;
       const pageIndex = page - 1;
-      console.log('[PdfAnnotator] Loaded anchor:', a._id, 'color:', a.color, 'parent:', a.parentContext);
+      console.log(
+        "[PdfAnnotator] Loaded anchor:",
+        a._id,
+        "color:",
+        a.color,
+        "parent:",
+        a.parentContext
+      );
       loaded.push({
         id: a._id,
         pageIndex,
@@ -274,7 +284,7 @@ async function loadExistingAnchors() {
       }
     }
   } catch (e) {
-    console.error('PdfAnnotator: failed to load existing anchors', e);
+    console.error("PdfAnnotator: failed to load existing anchors", e);
   }
 }
 
@@ -283,11 +293,11 @@ async function loadPdf() {
   if (!props.src) return;
 
   loading.value = true;
-  error.value = '';
+  error.value = "";
 
   // Cleanup old
   if (pagesContainer.value) {
-    pagesContainer.value.innerHTML = '';
+    pagesContainer.value.innerHTML = "";
   }
   pageWrappers = [];
   pdfDoc = null;
@@ -304,7 +314,7 @@ async function loadPdf() {
 
     const total = pdfDoc.numPages;
     if (total === 0) {
-      error.value = 'PDF has 0 pages';
+      error.value = "PDF has 0 pages";
       return;
     }
 
@@ -317,19 +327,20 @@ async function loadPdf() {
       if (cancelled || myToken !== renderToken) return;
 
       const page = await pdfDoc.getPage(i);
-      const wrapper = document.createElement('div');
-      wrapper.className = 'page-wrapper';
+      const wrapper = document.createElement("div");
+      wrapper.className = "page-wrapper";
       container.appendChild(wrapper);
       pageWrappers[i - 1] = wrapper;
 
       // Alt+drag box selection on this page
-      wrapper.addEventListener('mousedown', (ev: MouseEvent) =>
-        onWrapperMouseDown(i - 1, wrapper, ev),
+      wrapper.addEventListener("mousedown", (ev: MouseEvent) =>
+        onWrapperMouseDown(i - 1, wrapper, ev)
       );
 
       // Match PdfView scaling behaviour, with optional external zoom
       const baseViewport = page.getViewport({ scale: 1 });
-      const scale = (containerWidth / baseViewport.width) * zoom;
+      // Use zoom directly as scale to ensure 1:1 rendering at 100% zoom
+      const scale = zoom;
 
       const pageView: any = new PDFPageView({
         container: wrapper,
@@ -351,8 +362,8 @@ async function loadPdf() {
     // After pages are ready, load any persisted anchors for this paper
     await loadExistingAnchors();
   } catch (e: any) {
-    console.error('PdfAnnotator error:', e);
-    error.value = 'Failed to load PDF. ' + (e?.message ?? String(e));
+    console.error("PdfAnnotator error:", e);
+    error.value = "Failed to load PDF. " + (e?.message ?? String(e));
   } finally {
     loading.value = false;
   }
@@ -362,76 +373,74 @@ function drawHighlightsForPage(pageIndex: number) {
   const wrapper = pageWrappers[pageIndex];
   if (!wrapper) return;
 
-  let overlay = wrapper.querySelector('.overlay') as HTMLElement | null;
+  let overlay = wrapper.querySelector(".overlay") as HTMLElement | null;
   if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'overlay';
+    overlay = document.createElement("div");
+    overlay.className = "overlay";
     wrapper.appendChild(overlay);
   }
 
   // Toggle clickability for highlight selection mode
   if (props.highlightClickMode) {
-    overlay.classList.add('clickable');
-    overlay.style.pointerEvents = 'auto';
+    overlay.classList.add("clickable");
+    overlay.style.pointerEvents = "auto";
   } else {
-    overlay.classList.remove('clickable');
-    overlay.style.pointerEvents = 'none';
+    overlay.classList.remove("clickable");
+    overlay.style.pointerEvents = "none";
   }
 
   const w = wrapper.clientWidth;
   const hPx = wrapper.clientHeight;
-  overlay.innerHTML = '';
+  overlay.innerHTML = "";
 
   const pageHighlights = highlights.value.filter(
-    (h) => h.pageIndex === pageIndex,
+    (h) => h.pageIndex === pageIndex
   );
 
   for (const h of pageHighlights) {
     // Determine how visible this highlight should be
     const vis =
-      (props.highlightVisibility &&
-        props.highlightVisibility[h.id]) ||
-      'other';
+      (props.highlightVisibility && props.highlightVisibility[h.id]) || "other";
 
     let alpha = 0.2;
-    if (vis === 'self') alpha = 0.6;
-    else if (vis === 'ancestor') alpha = 0.4;
-    else if (vis === 'descendant') alpha = 0.3;
+    if (vis === "self") alpha = 0.6;
+    else if (vis === "ancestor") alpha = 0.4;
+    else if (vis === "descendant") alpha = 0.3;
     // Pending highlights are more visible
     if (h.pending) alpha = 0.4;
 
     for (const r of h.rects) {
-      const div = document.createElement('div');
-      div.className = 'hl';
+      const div = document.createElement("div");
+      div.className = "hl";
       div.style.left = `${Math.round(r.x * w)}px`;
       div.style.top = `${Math.round(r.y * hPx)}px`;
       div.style.width = `${Math.round(r.w * w)}px`;
       div.style.height = `${Math.round(r.h * hPx)}px`;
       div.style.backgroundColor = withAlpha(h.color, alpha);
       div.style.border = `1px solid ${darken(h.color)}`;
-      div.style.boxSizing = 'border-box';
-      
+      div.style.boxSizing = "border-box";
+
       // Add dashed border for pending highlights
       if (h.pending) {
-        div.style.borderStyle = 'dashed';
+        div.style.borderStyle = "dashed";
         div.dataset.highlightId = h.id; // Store ID for deletion
       }
 
       if (props.highlightClickMode) {
-        div.style.cursor = 'pointer';
-        div.addEventListener('click', (ev) => {
+        div.style.cursor = "pointer";
+        div.addEventListener("click", (ev) => {
           ev.stopPropagation();
-          emit('highlightClicked', h.id);
+          emit("highlightClicked", h.id);
         });
       }
 
       // Add delete button only for pending highlights (before posting)
       if (h.pending) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'hl-delete-btn';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.title = 'Delete highlight';
-        deleteBtn.addEventListener('click', (ev) => {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "hl-delete-btn";
+        deleteBtn.innerHTML = "×";
+        deleteBtn.title = "Delete highlight";
+        deleteBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
           deletePendingHighlight(h.id);
         });
@@ -443,20 +452,24 @@ function drawHighlightsForPage(pageIndex: number) {
 
       // Visual treatment for deleted anchors (threads)
       // Also gray out children if their parent is deleted
-      const isDeleted = 
+      const isDeleted =
         (props.deletedAnchors && props.deletedAnchors.has(h.id)) ||
         deletedAnchorIds.has(h.id) ||
-        (h.parentContext && (
-          (props.deletedAnchors && props.deletedAnchors.has(h.parentContext)) ||
-          deletedAnchorIds.has(h.parentContext)
-        ));
+        (h.parentContext &&
+          ((props.deletedAnchors &&
+            props.deletedAnchors.has(h.parentContext)) ||
+            deletedAnchorIds.has(h.parentContext)));
       if (isDeleted) {
-        console.log('[PdfAnnotator] Graying out deleted anchor:', h.id, h.parentContext ? `(parent: ${h.parentContext})` : '');
-        div.classList.add('deleted-anchor');
+        console.log(
+          "[PdfAnnotator] Graying out deleted anchor:",
+          h.id,
+          h.parentContext ? `(parent: ${h.parentContext})` : ""
+        );
+        div.classList.add("deleted-anchor");
         // Override color to a neutral gray so it's very clear that the
         // discussion was deleted but the region is still visible.
-        div.style.backgroundColor = 'rgba(160, 160, 160, 0.35)';
-        div.style.borderColor = '#888';
+        div.style.backgroundColor = "rgba(160, 160, 160, 0.35)";
+        div.style.borderColor = "#888";
       }
 
       overlay.appendChild(div);
@@ -467,7 +480,7 @@ function drawHighlightsForPage(pageIndex: number) {
 // Handle text selection (copied from PdfView with minimal changes)
 function onMouseUp(e: MouseEvent) {
   // Ignore clicks inside the popup to prevent it from moving/drifting
-  if ((e.target as HTMLElement).closest('.selection-popup')) {
+  if ((e.target as HTMLElement).closest(".selection-popup")) {
     return;
   }
 
@@ -502,7 +515,7 @@ function onMouseUp(e: MouseEvent) {
   }
 
   const wrapper = pageWrappers[pageIndex];
-  const textLayer = wrapper.querySelector('.textLayer') as HTMLElement | null;
+  const textLayer = wrapper.querySelector(".textLayer") as HTMLElement | null;
   if (!textLayer) {
     showPopup.value = false;
     return;
@@ -538,7 +551,7 @@ function onMouseUp(e: MouseEvent) {
     normRects.push({ x, y, w, h });
   }
 
-  console.debug('PdfAnnotator selection', {
+  console.debug("PdfAnnotator selection", {
     rawRects: rectList.length,
     normalizedRects: normRects.length,
     text,
@@ -563,7 +576,7 @@ function onMouseUp(e: MouseEvent) {
 function onWrapperMouseDown(
   pageIndex: number,
   wrapper: HTMLElement,
-  e: MouseEvent,
+  e: MouseEvent
 ) {
   if (!e.altKey) return; // Alt+drag for region highlight
   e.preventDefault();
@@ -576,17 +589,17 @@ function onWrapperMouseDown(
   }
 
   const overlay =
-    (wrapper.querySelector('.overlay') as HTMLElement | null) ??
+    (wrapper.querySelector(".overlay") as HTMLElement | null) ??
     (() => {
-      const o = document.createElement('div');
-      o.className = 'overlay';
+      const o = document.createElement("div");
+      o.className = "overlay";
       wrapper.appendChild(o);
       return o;
     })();
 
-  const preview = document.createElement('div');
-  preview.className = 'hl';
-  preview.style.borderStyle = 'dashed';
+  const preview = document.createElement("div");
+  preview.className = "hl";
+  preview.style.borderStyle = "dashed";
   overlay.appendChild(preview);
 
   boxDrawing = {
@@ -597,7 +610,7 @@ function onWrapperMouseDown(
     preview,
   };
 
-  document.addEventListener('mousemove', onBoxMouseMove);
+  document.addEventListener("mousemove", onBoxMouseMove);
 }
 
 function onBoxMouseMove(e: MouseEvent) {
@@ -627,7 +640,7 @@ function onBoxMouseMove(e: MouseEvent) {
 function finishBoxDrawing(e: MouseEvent) {
   if (!boxDrawing) return;
 
-  document.removeEventListener('mousemove', onBoxMouseMove);
+  document.removeEventListener("mousemove", onBoxMouseMove);
 
   const { pageIndex, wrapper, preview } = boxDrawing;
   const rect = preview.getBoundingClientRect();
@@ -661,13 +674,13 @@ function finishBoxDrawing(e: MouseEvent) {
   const rects: HighlightRect[] = [{ x, y, w: rw, h: rh }];
 
   // Create a temporary pending highlight that's visible immediately
-  const tempId = 'pending-' + Date.now().toString(36);
+  const tempId = "pending-" + Date.now().toString(36);
   const pendingHighlight: Highlight = {
     id: tempId,
     pageIndex,
     rects,
     color: props.activeColor,
-    text: '',
+    text: "",
     pending: true,
   };
 
@@ -680,7 +693,7 @@ function finishBoxDrawing(e: MouseEvent) {
   pendingSelection = {
     pageIndex,
     rects,
-    text: '',
+    text: "",
     tempHighlightId: tempId, // Track which highlight to replace/remove
   };
   showPopup.value = true;
@@ -691,7 +704,9 @@ function confirmHighlight() {
 
   // Remove pending highlight if it exists
   if (pendingSelection.tempHighlightId) {
-    const idx = highlights.value.findIndex(h => h.id === pendingSelection!.tempHighlightId);
+    const idx = highlights.value.findIndex(
+      (h) => h.id === pendingSelection!.tempHighlightId
+    );
     if (idx >= 0) highlights.value.splice(idx, 1);
   }
 
@@ -705,7 +720,7 @@ function confirmHighlight() {
 
   highlights.value.push(highlight);
   drawHighlightsForPage(highlight.pageIndex);
-  emit('highlight', highlight);
+  emit("highlight", highlight);
 
   // Clear selection
   try {
@@ -718,7 +733,7 @@ function confirmHighlight() {
 }
 
 function deleteHighlightById(highlightId: string) {
-  const idx = highlights.value.findIndex(h => h.id === highlightId);
+  const idx = highlights.value.findIndex((h) => h.id === highlightId);
   if (idx >= 0) {
     const h = highlights.value[idx];
     highlights.value.splice(idx, 1);
@@ -740,7 +755,9 @@ async function confirmPrompt() {
 
   // Remove pending highlight if it exists
   if (pendingSelection.tempHighlightId) {
-    const idx = highlights.value.findIndex(h => h.id === pendingSelection!.tempHighlightId);
+    const idx = highlights.value.findIndex(
+      (h) => h.id === pendingSelection!.tempHighlightId
+    );
     if (idx >= 0) highlights.value.splice(idx, 1);
   }
 
@@ -751,45 +768,36 @@ async function confirmPrompt() {
   let anchorId: string | null = null;
   if (props.paperId && sessionStore.token) {
     try {
-      console.log(
-        "[PdfAnnotator.confirmPrompt] starting with session",
-        {
-          paperId: props.paperId,
-          hasSessionToken: !!sessionStore.token,
-          sessionTokenPrefix: sessionStore.token.slice(0, 8),
-        },
-      );
+      console.log("[PdfAnnotator.confirmPrompt] starting with session", {
+        paperId: props.paperId,
+        hasSessionToken: !!sessionStore.token,
+        sessionTokenPrefix: sessionStore.token.slice(0, 8),
+      });
       const rectsEncoded = rects
         .map((r) =>
-          [r.x, r.y, r.w, r.h].map((n) => Number(n.toFixed(4))).join(','),
+          [r.x, r.y, r.w, r.h].map((n) => Number(n.toFixed(4))).join(",")
         )
-        .join('|');
+        .join("|");
       const ref = `p=${pageIndex + 1};rects=${rectsEncoded}`;
-      console.log(
-        "[PdfAnnotator.confirmPrompt] calling anchored.create",
-        {
-          ref,
-          snippetPreview: (text || '').slice(0, 80),
-        },
-      );
+      console.log("[PdfAnnotator.confirmPrompt] calling anchored.create", {
+        ref,
+        snippetPreview: (text || "").slice(0, 80),
+      });
       console.time("[PdfAnnotator.confirmPrompt] anchored.create");
       const res = await anchored.create({
         paperId: props.paperId,
-        kind: 'Lines',
+        kind: "Lines",
         ref,
-        snippet: (text || '').slice(0, 300),
+        snippet: (text || "").slice(0, 300),
         session: sessionStore.token,
         color: props.activeColor,
         ...(currentParentAnchor && { parentContext: currentParentAnchor }),
       });
       console.timeEnd("[PdfAnnotator.confirmPrompt] anchored.create");
-      console.log(
-        "[PdfAnnotator.confirmPrompt] anchored.create success",
-        res,
-      );
+      console.log("[PdfAnnotator.confirmPrompt] anchored.create success", res);
       anchorId = res.anchorId;
     } catch (e) {
-      console.error('PdfAnnotator: failed to create anchor for prompt', e);
+      console.error("PdfAnnotator: failed to create anchor for prompt", e);
     }
   }
 
@@ -805,7 +813,7 @@ async function confirmPrompt() {
   };
   highlights.value.push(highlight);
   drawHighlightsForPage(pageIndex);
-  emit('highlight', highlight);
+  emit("highlight", highlight);
 
   // Dispatch global event so DiscussionPanel can prefill a thread
   const aid = id;
@@ -819,7 +827,7 @@ async function confirmPrompt() {
   };
   try {
     window.dispatchEvent(
-      new CustomEvent('start-thread-with-highlight', { detail }),
+      new CustomEvent("start-thread-with-highlight", { detail })
     );
   } catch {
     // ignore
@@ -845,7 +853,7 @@ function cleanupPendingHighlight() {
 
 function handleClickOutside(e: MouseEvent) {
   if (showPopup.value && pendingSelection) {
-    const popup = document.querySelector('.selection-popup');
+    const popup = document.querySelector(".selection-popup");
     if (popup && !popup.contains(e.target as Node)) {
       cleanupPendingHighlight();
     }
@@ -870,7 +878,7 @@ function onAnchorDeletedVisual(e: Event) {
 function onDeletedAnchorsSnapshot(e: Event) {
   const custom = e as CustomEvent<string[]>;
   const ids = custom.detail || [];
-  console.log('[PdfAnnotator] onDeletedAnchorsSnapshot received:', ids);
+  console.log("[PdfAnnotator] onDeletedAnchorsSnapshot received:", ids);
   deletedAnchorIds.clear();
   for (const id of ids) {
     deletedAnchorIds.add(id);
@@ -884,25 +892,31 @@ function onDeletedAnchorsSnapshot(e: Event) {
 function onCurrentParentAnchor(e: Event) {
   const custom = e as CustomEvent<string | null>;
   currentParentAnchor = custom.detail;
-  console.log('[PdfAnnotator] Current parent anchor set to:', currentParentAnchor);
+  console.log(
+    "[PdfAnnotator] Current parent anchor set to:",
+    currentParentAnchor
+  );
 }
 
 function onClearParentAnchor() {
   currentParentAnchor = null;
-  console.log('[PdfAnnotator] Parent anchor cleared (thread created)');
+  console.log("[PdfAnnotator] Parent anchor cleared (thread created)");
 }
 
 onMounted(() => {
   cancelled = false;
   loadPdf();
-  document.addEventListener('mouseup', onMouseUp);
-  window.addEventListener('anchor-deleted-visual', onAnchorDeletedVisual);
-  window.addEventListener('anchor-deleted-visual-snapshot', onDeletedAnchorsSnapshot);
-  window.addEventListener('current-parent-anchor', onCurrentParentAnchor);
-  window.addEventListener('clear-parent-anchor', onClearParentAnchor);
+  document.addEventListener("mouseup", onMouseUp);
+  window.addEventListener("anchor-deleted-visual", onAnchorDeletedVisual);
+  window.addEventListener(
+    "anchor-deleted-visual-snapshot",
+    onDeletedAnchorsSnapshot
+  );
+  window.addEventListener("current-parent-anchor", onCurrentParentAnchor);
+  window.addEventListener("clear-parent-anchor", onClearParentAnchor);
   // Request current status in case we mounted after the initial event
   try {
-    window.dispatchEvent(new Event('request-deleted-anchors-status'));
+    window.dispatchEvent(new Event("request-deleted-anchors-status"));
   } catch {
     // ignore
   }
@@ -910,19 +924,28 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelled = true;
-  document.removeEventListener('mouseup', onMouseUp);
-  window.removeEventListener('anchor-deleted-visual', onAnchorDeletedVisual);
-  window.removeEventListener('anchor-deleted-visual-snapshot', onDeletedAnchorsSnapshot);
-  window.removeEventListener('current-parent-anchor', onCurrentParentAnchor);
-  window.removeEventListener('clear-parent-anchor', onClearParentAnchor);
+  document.removeEventListener("mouseup", onMouseUp);
+  window.removeEventListener("anchor-deleted-visual", onAnchorDeletedVisual);
+  window.removeEventListener(
+    "anchor-deleted-visual-snapshot",
+    onDeletedAnchorsSnapshot
+  );
+  window.removeEventListener("current-parent-anchor", onCurrentParentAnchor);
+  window.removeEventListener("clear-parent-anchor", onClearParentAnchor);
 });
 
 watch(
-  () => [props.src, props.zoom, props.highlightVisibility, props.highlightClickMode, props.paperId],
+  () => [
+    props.src,
+    props.zoom,
+    props.highlightVisibility,
+    props.highlightClickMode,
+    props.paperId,
+  ],
   () => {
     cancelled = false;
     loadPdf();
-  },
+  }
 );
 </script>
 
@@ -949,11 +972,21 @@ watch(
 }
 .pages {
   display: block;
+  max-width: 70%;
 }
 .page-wrapper {
   position: relative;
   margin: 0 auto 6px;
   width: fit-content;
+  max-width: 100%;
+}
+:global(.page) {
+  max-width: 100%;
+  height: auto !important;
+}
+:global(.canvasWrapper),
+:global(.textLayer) {
+  max-width: 100%;
 }
 :global(.overlay) {
   position: absolute;

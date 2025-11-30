@@ -155,7 +155,7 @@ watch(() => route.query.source, (val) => {
 }
 .source-select:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
 input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
-.cards { display: grid; gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .result .title { margin: 0 0 4px; }
 .meta { font-size: 13px; color: #666; }

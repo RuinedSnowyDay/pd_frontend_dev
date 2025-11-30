@@ -4,13 +4,23 @@
       <div class="title-row">
         <h2 class="title">{{ header.title || id }}</h2>
         <div class="actions">
-          <a class="ghost" :href="externalAbsLink" target="_blank" rel="noreferrer">Open on {{ sourceName }}</a>
+          <a
+            class="ghost"
+            :href="externalAbsLink"
+            target="_blank"
+            rel="noreferrer"
+            >Open on {{ sourceName }}</a
+          >
           <button class="ghost" @click="saveToLibrary">Add to library</button>
-          <a class="ghost" href="/">Back to Feed</a>
+          <button class="ghost" @click="$router.push('/')">Back to Feed</button>
         </div>
       </div>
       <div class="meta">
-        <span v-if="header.doi"><a :href="header.link" target="_blank" rel="noreferrer">{{ header.doi }}</a></span>
+        <span v-if="header.doi"
+          ><a :href="header.link" target="_blank" rel="noreferrer">{{
+            header.doi
+          }}</a></span
+        >
         <span v-if="header.authors"> · {{ header.authors }}</span>
       </div>
       <p v-if="banner" class="banner">{{ banner }}</p>
@@ -19,12 +29,20 @@
     <div class="columns">
       <section class="center">
         <!-- bioRxiv: User uploads their own PDF copy -->
-        <div v-if="paperSource === 'biorxiv' && !localPdfUrl" class="upload-prompt card">
+        <div
+          v-if="paperSource === 'biorxiv' && !localPdfUrl"
+          class="upload-prompt card"
+        >
           <div class="upload-icon">📄</div>
           <h3>Upload Your PDF Copy</h3>
           <ol class="upload-steps">
             <li>
-              <a :href="externalPdfLink" target="_blank" rel="noreferrer" class="download-link">
+              <a
+                :href="externalPdfLink"
+                target="_blank"
+                rel="noreferrer"
+                class="download-link"
+              >
                 Download PDF from bioRxiv
               </a>
             </li>
@@ -32,32 +50,52 @@
           </ol>
           <label class="upload-btn primary">
             Choose PDF File
-            <input type="file" accept=".pdf,application/pdf" @change="onPdfUpload" hidden />
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              @change="onPdfUpload"
+              hidden
+            />
           </label>
           <p class="privacy-note">Your PDF stays on your device only</p>
           <div class="discussion-hint">
             <p v-if="discussionCount > 0">
-              <strong>{{ discussionCount }}</strong> discussion{{ discussionCount === 1 ? '' : 's' }} available in the sidebar
+              <strong>{{ discussionCount }}</strong> discussion{{
+                discussionCount === 1 ? "" : "s"
+              }}
+              available in the sidebar
             </p>
             <p v-else>
-              <a :href="externalAbsLink" target="_blank" rel="noreferrer">View abstract on bioRxiv</a>
+              <a :href="externalAbsLink" target="_blank" rel="noreferrer"
+                >View abstract on bioRxiv</a
+              >
             </p>
           </div>
         </div>
         <!-- bioRxiv with uploaded PDF -->
-        <div v-else-if="paperSource === 'biorxiv' && localPdfUrl" class="pdf-scroll">
+        <div
+          v-else-if="paperSource === 'biorxiv' && localPdfUrl"
+          class="pdf-scroll"
+        >
           <div class="toolbar">
             <div class="colors">
               <button
                 v-for="color in colors"
                 :key="color.value"
                 :style="{ backgroundColor: color.value }"
-                :class="['color-btn', { active: selectedColor === color.value }]"
+                :class="[
+                  'color-btn',
+                  { active: selectedColor === color.value },
+                ]"
                 @click="selectedColor = color.value"
               ></button>
             </div>
             <div class="toolbar-right">
-              <button class="ghost remove-pdf" @click="removePdf" title="Remove uploaded PDF">
+              <button
+                class="ghost remove-pdf"
+                @click="removePdf"
+                title="Remove uploaded PDF"
+              >
                 Remove PDF
               </button>
               <div class="zoom">
@@ -83,7 +121,10 @@
                 v-for="color in colors"
                 :key="color.value"
                 :style="{ backgroundColor: color.value }"
-                :class="['color-btn', { active: selectedColor === color.value }]"
+                :class="[
+                  'color-btn',
+                  { active: selectedColor === color.value },
+                ]"
                 @click="selectedColor = color.value"
               ></button>
             </div>
@@ -107,23 +148,28 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, reactive, ref, computed } from 'vue';
-import PdfAnnotator from '@/components/PdfAnnotator.vue';
-import { paper, discussion } from '@/api/endpoints';
-import { BASE_URL } from '@/api/client';
-import { storePdf, getPdf, deletePdf } from '@/utils/pdfStorage';
+import { onMounted, onBeforeUnmount, reactive, ref, computed } from "vue";
+import PdfAnnotator from "@/components/PdfAnnotator.vue";
+import { paper, discussion } from "@/api/endpoints";
+import { BASE_URL } from "@/api/client";
+import { storePdf, getPdf, deletePdf } from "@/utils/pdfStorage";
 
-type PaperSource = 'arxiv' | 'biorxiv';
+type PaperSource = "arxiv" | "biorxiv";
 
 const props = defineProps<{ id: string }>();
 // id is the external paperId (from route)
 const externalPaperId = ref<string>(props.id);
 // internal _id (from ensure) - used for PdfHighlighter operations
 const internalPaperId = ref<string | null>(null);
-const header = reactive<{ title?: string; doi?: string; link?: string; authors?: string }>({});
-import { useSessionStore } from '@/stores/session';
+const header = reactive<{
+  title?: string;
+  doi?: string;
+  link?: string;
+  authors?: string;
+}>({});
+import { useSessionStore } from "@/stores/session";
 const session = useSessionStore();
-const banner = ref('');
+const banner = ref("");
 const discussionCount = ref(0);
 
 // Local PDF upload state (for bioRxiv papers)
@@ -136,19 +182,21 @@ const localPdfLoading = ref(false);
 const paperSource = computed<PaperSource>(() => {
   const id = externalPaperId.value;
   // bioRxiv DOI patterns
-  if (id.startsWith('10.1101/') || /^\d{4}\.\d{2}\.\d{2}\.\d+$/.test(id)) {
-    return 'biorxiv';
+  if (id.startsWith("10.1101/") || /^\d{4}\.\d{2}\.\d{2}\.\d+$/.test(id)) {
+    return "biorxiv";
   }
-  return 'arxiv';
+  return "arxiv";
 });
 
-const sourceName = computed(() => paperSource.value === 'biorxiv' ? 'bioRxiv' : 'arXiv');
+const sourceName = computed(() =>
+  paperSource.value === "biorxiv" ? "bioRxiv" : "arXiv"
+);
 
 const pdfProxyLink = computed(() => {
-  if (paperSource.value === 'biorxiv') {
+  if (paperSource.value === "biorxiv") {
     // Use S3-backed proxy for bioRxiv PDFs
-    const suffix = externalPaperId.value.startsWith('10.1101/')
-      ? externalPaperId.value.slice('10.1101/'.length)
+    const suffix = externalPaperId.value.startsWith("10.1101/")
+      ? externalPaperId.value.slice("10.1101/".length)
       : externalPaperId.value;
     return `${BASE_URL}/biorxiv-pdf/${encodeURIComponent(suffix)}`;
   }
@@ -156,8 +204,8 @@ const pdfProxyLink = computed(() => {
 });
 
 const externalAbsLink = computed(() => {
-  if (paperSource.value === 'biorxiv') {
-    const doi = externalPaperId.value.startsWith('10.1101/')
+  if (paperSource.value === "biorxiv") {
+    const doi = externalPaperId.value.startsWith("10.1101/")
       ? externalPaperId.value
       : `10.1101/${externalPaperId.value}`;
     return `https://www.biorxiv.org/content/${doi}`;
@@ -166,31 +214,33 @@ const externalAbsLink = computed(() => {
 });
 
 const externalPdfLink = computed(() => {
-  if (paperSource.value === 'biorxiv') {
-    const doi = externalPaperId.value.startsWith('10.1101/')
+  if (paperSource.value === "biorxiv") {
+    const doi = externalPaperId.value.startsWith("10.1101/")
       ? externalPaperId.value
       : `10.1101/${externalPaperId.value}`;
     return `https://www.biorxiv.org/content/${doi}.full.pdf`;
   }
-  return `https://arxiv.org/pdf/${encodeURIComponent(externalPaperId.value)}.pdf`;
+  return `https://arxiv.org/pdf/${encodeURIComponent(
+    externalPaperId.value
+  )}.pdf`;
 });
 
 const zoom = ref(1);
 const colors = [
-  { name: 'Yellow', value: '#ffeb3b' },
-  { name: 'Green', value: '#a5d6a7' },
-  { name: 'Blue', value: '#90caf9' },
-  { name: 'Red', value: '#ef9a9a' },
-  { name: 'Purple', value: '#ce93d8' },
+  { name: "Yellow", value: "#ffeb3b" },
+  { name: "Green", value: "#a5d6a7" },
+  { name: "Blue", value: "#90caf9" },
+  { name: "Red", value: "#ef9a9a" },
+  { name: "Purple", value: "#ce93d8" },
 ];
 const selectedColor = ref(colors[0].value);
 
 const activeAnchorId = ref<string | null>(null);
 const highlightVisibility = computed<
-  Record<string, 'self' | 'ancestor' | 'descendant' | 'other'>
+  Record<string, "self" | "ancestor" | "descendant" | "other">
 >(() => {
   const idVal = activeAnchorId.value;
-  return idVal ? { [idVal]: 'self' } : {};
+  return idVal ? { [idVal]: "self" } : {};
 });
 
 function onAnchorFocus(e: Event) {
@@ -205,8 +255,10 @@ function isValidPaperId(id: string): boolean {
   // bioRxiv DOI: 10.1101/... or just the suffix YYYY.MM.DD.NNNNNN
   const biorxivFullDoi = /^10\.1101\//;
   const biorxivSuffix = /^\d{4}\.\d{2}\.\d{2}\.\d+$/;
-  
-  return arxivPattern.test(id) || biorxivFullDoi.test(id) || biorxivSuffix.test(id);
+
+  return (
+    arxivPattern.test(id) || biorxivFullDoi.test(id) || biorxivSuffix.test(id)
+  );
 }
 
 onMounted(async () => {
@@ -224,7 +276,7 @@ onMounted(async () => {
       // banner.value = 'This paper is not yet in your index.';
     }
   } catch {}
-  window.addEventListener('anchor-focus', onAnchorFocus);
+  window.addEventListener("anchor-focus", onAnchorFocus);
 
   // Auto-ensure paper exists in local index so we can attach discussions
   // This also gives us the internal _id which we need for PdfHighlighter operations
@@ -241,11 +293,11 @@ onMounted(async () => {
       header.title = title;
     }
   } catch (e) {
-    console.error('Failed to ensure paper:', e);
+    console.error("Failed to ensure paper:", e);
   }
 
   // For bioRxiv papers: load PDF from IndexedDB if available
-  if (paperSource.value === 'biorxiv') {
+  if (paperSource.value === "biorxiv") {
     localPdfLoading.value = true;
     try {
       const storedBlob = await getPdf(externalPaperId.value);
@@ -253,14 +305,16 @@ onMounted(async () => {
         localPdfUrl.value = URL.createObjectURL(storedBlob);
       }
     } catch (e) {
-      console.error('Failed to load PDF from storage:', e);
+      console.error("Failed to load PDF from storage:", e);
     } finally {
       localPdfLoading.value = false;
     }
 
     // Fetch discussion count
     try {
-      const { pubId } = await discussion.getPubIdByPaper({ paperId: externalPaperId.value });
+      const { pubId } = await discussion.getPubIdByPaper({
+        paperId: externalPaperId.value,
+      });
       if (pubId) {
         const { threads } = await discussion.listThreads({ pubId });
         discussionCount.value = threads.length;
@@ -272,7 +326,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('anchor-focus', onAnchorFocus);
+  window.removeEventListener("anchor-focus", onAnchorFocus);
   // Revoke blob URL to free memory
   if (localPdfUrl.value) {
     URL.revokeObjectURL(localPdfUrl.value);
@@ -282,9 +336,12 @@ onBeforeUnmount(() => {
 const id = computed(() => externalPaperId.value);
 
 function saveToLibrary() {
-  if (!session.userId) { alert('Please sign in first.'); return; }
+  if (!session.userId) {
+    alert("Please sign in first.");
+    return;
+  }
   const key = `library:${session.userId}`;
-  const ids: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+  const ids: string[] = JSON.parse(localStorage.getItem(key) || "[]");
   // Store external paperId in localStorage (for URLs and display)
   if (!ids.includes(externalPaperId.value)) {
     ids.push(externalPaperId.value);
@@ -292,8 +349,12 @@ function saveToLibrary() {
   }
 }
 
-function zoomIn() { zoom.value = Math.min(zoom.value + 0.1, 3); }
-function zoomOut() { zoom.value = Math.max(zoom.value - 0.1, 0.3); }
+function zoomIn() {
+  zoom.value = Math.min(zoom.value + 0.1, 3);
+}
+function zoomOut() {
+  zoom.value = Math.max(zoom.value - 0.1, 0.3);
+}
 
 // Handle PDF file upload (bioRxiv)
 async function onPdfUpload(event: Event) {
@@ -302,33 +363,37 @@ async function onPdfUpload(event: Event) {
   if (!file) return;
 
   // Validate it's a PDF
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    alert('Please upload a PDF file');
+  if (
+    file.type !== "application/pdf" &&
+    !file.name.toLowerCase().endsWith(".pdf")
+  ) {
+    alert("Please upload a PDF file");
     return;
   }
 
   try {
     // Store in IndexedDB for persistence
     await storePdf(externalPaperId.value, file);
-    
+
     // Create blob URL for display
     if (localPdfUrl.value) {
       URL.revokeObjectURL(localPdfUrl.value);
     }
     localPdfUrl.value = URL.createObjectURL(file);
   } catch (e) {
-    console.error('Failed to store PDF:', e);
-    alert('Failed to store PDF. Please try again.');
+    console.error("Failed to store PDF:", e);
+    alert("Failed to store PDF. Please try again.");
   }
 
   // Reset input so same file can be re-selected
-  input.value = '';
+  input.value = "";
 }
 
 // Remove uploaded PDF
 async function removePdf() {
-  if (!confirm('Remove the uploaded PDF? You can upload it again later.')) return;
-  
+  if (!confirm("Remove the uploaded PDF? You can upload it again later."))
+    return;
+
   try {
     await deletePdf(externalPaperId.value);
     if (localPdfUrl.value) {
@@ -336,25 +401,117 @@ async function removePdf() {
       localPdfUrl.value = null;
     }
   } catch (e) {
-    console.error('Failed to remove PDF:', e);
+    console.error("Failed to remove PDF:", e);
   }
 }
 </script>
 
 <style scoped>
-.paper { display: grid; gap: 12px; }
-.header .title { font-family: var(--font-serif); }
-.title-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.actions { display: flex; gap: 8px; }
-.inline { padding: 2px 8px; }
-.columns { display: grid; grid-template-columns: 1fr; gap: 16px; }
-.center { display: block; }
-.pdf-scroll { height: calc(100vh - 220px); overflow: auto; position: relative; }
-.card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-.primary { background: var(--brand); color: #fff; border: 1px solid var(--brand); border-radius: 6px; padding: 6px 10px; text-decoration: none; }
-.ghost { background: #fff; color: var(--brand); border: 1px solid var(--brand); border-radius: 6px; padding: 6px 10px; text-decoration: none; }
-.banner { margin-top: 8px; color: var(--error); }
-.divider { height: 1px; background: var(--border); margin: 12px 0; }
+.paper {
+  display: grid;
+  gap: 16px;
+  max-width: 850px;
+  margin: 0 auto;
+}
+.header .title {
+  font-family: var(--font-serif);
+  margin: 0;
+  font-size: 24px;
+}
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.meta {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.meta a {
+  color: var(--brand);
+  text-decoration: none;
+}
+.meta a:hover {
+  text-decoration: underline;
+}
+.inline {
+  padding: 2px 8px;
+}
+.columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.center {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
+.pdf-scroll {
+  height: calc(100vh - 220px);
+  overflow: auto;
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  max-width: 100%;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.primary {
+  background: var(--brand);
+  color: #fff;
+  border: 1.5px solid var(--brand);
+  border-radius: 8px;
+  padding: 8px 16px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.primary:hover {
+  background: #9a1717;
+  border-color: #9a1717;
+  box-shadow: 0 4px 12px rgba(179, 27, 27, 0.3);
+  transform: translateY(-1px);
+}
+.ghost {
+  background: #fff;
+  color: var(--brand);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.ghost:hover {
+  border-color: var(--brand);
+  background: #fef2f2;
+}
+.banner {
+  margin-top: 8px;
+  color: var(--error);
+}
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
 .toolbar {
   position: sticky;
   top: 0;
@@ -366,8 +523,13 @@ async function removePdf() {
   background: #fff;
   z-index: 5;
   border-bottom: 1px solid var(--border);
+  margin: 20px;
 }
-.toolbar .z { width: 52px; text-align: center; line-height: 28px; }
+.toolbar .z {
+  width: 52px;
+  text-align: center;
+  line-height: 28px;
+}
 .colors {
   display: flex;
   gap: 8px;
@@ -392,7 +554,9 @@ async function removePdf() {
   gap: 6px;
 }
 @media (max-width: 1100px) {
-  .columns { grid-template-columns: 1fr; }
+  .columns {
+    grid-template-columns: 1fr;
+  }
 }
 .biorxiv-fallback {
   text-align: center;

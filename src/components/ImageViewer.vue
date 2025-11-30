@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = defineProps<{
   images: string[];
@@ -7,7 +7,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'close'): void;
+  (e: "close"): void;
 }>();
 
 const index = ref(props.startIndex ?? 0);
@@ -16,14 +16,14 @@ const zoom = ref(1);
 watch(
   () => props.startIndex,
   (val) => {
-    if (typeof val === 'number') index.value = val;
+    if (typeof val === "number") index.value = val;
   }
 );
 
-const currentSrc = computed(() => props.images[index.value] ?? '');
+const currentSrc = computed(() => props.images[index.value] ?? "");
 
 function close() {
-  emit('close');
+  emit("close");
 }
 
 function clampIndex(i: number) {
@@ -58,11 +58,11 @@ function resetZoom() {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') close();
-  else if (e.key === 'ArrowRight') next();
-  else if (e.key === 'ArrowLeft') prev();
-  else if (e.key === '+') zoomIn();
-  else if (e.key === '-') zoomOut();
+  if (e.key === "Escape") close();
+  else if (e.key === "ArrowRight") next();
+  else if (e.key === "ArrowLeft") prev();
+  else if (e.key === "+") zoomIn();
+  else if (e.key === "-") zoomOut();
 }
 
 function onWheel(e: WheelEvent) {
@@ -78,27 +78,30 @@ function onWheel(e: WheelEvent) {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', onKey);
-  window.addEventListener('wheel', onWheel, { passive: false } as AddEventListenerOptions);
+  window.addEventListener("keydown", onKey);
+  window.addEventListener("wheel", onWheel, {
+    passive: false,
+  } as AddEventListenerOptions);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKey);
-  window.removeEventListener('wheel', onWheel);
+  window.removeEventListener("keydown", onKey);
+  window.removeEventListener("wheel", onWheel);
 });
 </script>
 
 <template>
   <div class="lightbox" @click="close">
     <div class="content" @click.stop>
-      <button class="nav-btn left" @click.stop="prev" v-if="images.length > 1">‹</button>
+      <button class="nav-btn left" @click.stop="prev" v-if="images.length > 1">
+        ‹
+      </button>
       <div class="image-wrapper">
-        <img
-          :src="currentSrc"
-          :style="{ transform: `scale(${zoom})` }"
-        />
+        <img :src="currentSrc" :style="{ transform: `scale(${zoom})` }" />
       </div>
-      <button class="nav-btn right" @click.stop="next" v-if="images.length > 1">›</button>
+      <button class="nav-btn right" @click.stop="next" v-if="images.length > 1">
+        ›
+      </button>
 
       <button class="close-btn" @click.stop="close">×</button>
 
@@ -255,4 +258,3 @@ img {
   font-size: 11px;
 }
 </style>
-
