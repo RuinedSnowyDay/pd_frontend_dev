@@ -82,7 +82,7 @@
       <ul class="threads" v-if="filteredThreads.length">
         <li v-for="t in filteredThreads" :key="t.id" class="card">
           <div class="meta">
-            <strong>{{ t.author }}</strong>
+            <strong>{{ t.authorName || t.author }}</strong>
             <span
               v-if="t.anchorId"
               class="anchor"
@@ -185,6 +185,7 @@ import { BASE_URL } from '@/api/client';
 import ReplyTree from '@/components/ReplyTree.vue';
 import ImageViewer from '@/components/ImageViewer.vue';
 import { renderMarkdown, buildBodyWithImages } from '@/utils/markdown';
+import { getUsernameById, prefetchUsernames } from '@/utils/usernameCache';
 
 const props = defineProps<{ paperId: string | null; anchorFilterProp?: string | null }>();
 
@@ -221,8 +222,8 @@ const showDeleteConfirm = ref(false);
 const pendingDeleteThreadId = ref<string | null>(null);
 
 const actions = ref<string[]>([]);
-type ReplyNode = { _id: string; author: string; body: string; anchorId?: string; children?: ReplyNode[]; deleted?: boolean };
-type Thread = { id: string; author: string; body: string; anchorId?: string; replies: ReplyNode[]; deleted?: boolean };
+type ReplyNode = { _id: string; author: string; authorName?: string; body: string; anchorId?: string; children?: ReplyNode[]; deleted?: boolean };
+type Thread = { id: string; author: string; authorName?: string; body: string; anchorId?: string; replies: ReplyNode[]; deleted?: boolean };
 const threads = ref<Thread[]>([]);
 const anchorFilter = ref('');
 const expanded = ref<Record<string, boolean>>({});
@@ -336,14 +337,51 @@ async function loadThreads() {
   console.log('[DiscussionPanel] Loaded threads raw:', JSON.stringify(list, null, 2));
   console.log('[DiscussionPanel] Current user ID:', session.userId);
   const built: Thread[] = [];
+
+  // Collect all unique author IDs for prefetching
+  const authorIds = new Set<string>();
+  for (const t of list) {
+    authorIds.add(t.author);
+    const replies = (await (discussion as any).listRepliesTree({ threadId: t._id, includeDeleted: true })).replies as any[];
+    function collectAuthors(nodes: any[]) {
+      for (const node of nodes) {
+        authorIds.add(node.author);
+        if (node.children) collectAuthors(node.children);
+      }
+    }
+    collectAuthors(replies);
+  }
+
+  // Prefetch all usernames
+  await prefetchUsernames(Array.from(authorIds));
+
+  // Build threads with usernames (already prefetched, so getUsernameById will return from cache)
   for (const t of list) {
     // Prefer the tree API; fall back to flat list if tree is empty for any reason.
     let nodes: any[] = (await (discussion as any).listRepliesTree({ threadId: t._id, includeDeleted: true })).replies as any[];
     if (!nodes || nodes.length === 0) {
       const flat = await (discussion as any).listReplies({ threadId: t._id, includeDeleted: true });
-      nodes = flat.replies.map((r: any) => ({ _id: r._id, author: r.author, body: r.body, anchorId: r.anchorId, children: [] as any[], deleted: r.deleted ?? false }));
+      nodes = await Promise.all(flat.replies.map(async (r: any) => ({
+        _id: r._id,
+        author: r.author,
+        authorName: await getUsernameById(r.author),
+        body: r.body,
+        anchorId: r.anchorId,
+        children: [] as any[],
+        deleted: r.deleted ?? false
+      })));
+    } else {
+      // Add authorName to tree nodes recursively
+      async function addAuthorNames(nodes: any[]) {
+        for (const node of nodes) {
+          node.authorName = await getUsernameById(node.author);
+          if (node.children) await addAuthorNames(node.children);
+        }
+      }
+      await addAuthorNames(nodes);
     }
-    built.push({ id: t._id, author: t.author, body: t.body, anchorId: t.anchorId, replies: nodes as any, deleted: t.deleted });
+    const authorName = await getUsernameById(t.author);
+    built.push({ id: t._id, author: t.author, authorName, body: t.body, anchorId: t.anchorId, replies: nodes as any, deleted: t.deleted });
   }
   threads.value = built;
   // Note: expanded state is preserved across reloads (not reset)

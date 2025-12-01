@@ -1,7 +1,7 @@
 <template>
   <li class="reply" :style="{ marginLeft: (depth * 16) + 'px' }">
     <div class="meta">
-      <strong v-if="!node.deleted">{{ node.author }}</strong>
+      <strong v-if="!node.deleted">{{ node.authorName || node.author }}</strong>
       <span v-else class="deleted-author">[deleted]</span>
     </div>
     <div class="body" :class="{ deleted: node.deleted }">

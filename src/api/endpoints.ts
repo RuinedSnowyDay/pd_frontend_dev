@@ -325,6 +325,10 @@ export const session = {
   async logout(args: { session: string }): Promise<{ status: string }> {
     return await post<{ status: string }>(`/logout`, args);
   },
+  async getUsernameById(args: { session: string; user: string }): Promise<{ username?: string }> {
+    const data = await post<{ username?: string }>(`/UserAuthentication/_getUsernameById`, args);
+    return data;
+  },
 };
 
 

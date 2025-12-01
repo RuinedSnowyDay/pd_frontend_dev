@@ -33,7 +33,7 @@
           class="profile-icon"
         />
         <div class="user-info">
-          <div class="user-email">{{ store?.userId || "User" }}</div>
+          <div class="user-email">{{ displayName || "User" }}</div>
           <a href="#" @click.prevent="logout" class="sign-out-link">Sign out</a>
         </div>
       </div>
@@ -42,9 +42,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useSessionStore } from "@/stores/session";
 import { session } from "@/api/endpoints";
+import { getUsernameById } from "@/utils/usernameCache";
 
 type PaperSource = "arxiv" | "biorxiv";
 
@@ -52,6 +53,8 @@ const props = defineProps<{ backendOk: boolean }>();
 const emit = defineEmits<{ (e: "search", q: string): void }>();
 const q = ref("");
 const source = ref<PaperSource>("arxiv");
+const displayName = ref<string>("");
+
 let store: ReturnType<typeof useSessionStore>;
 try {
   store = useSessionStore();
@@ -59,6 +62,19 @@ try {
   /* during HMR pinia may not be active yet */
 }
 const token = computed(() => store?.token ?? null);
+
+// Fetch and display the username
+onMounted(async () => {
+  if (store?.userId && store?.token) {
+    try {
+      const username = await getUsernameById(store.userId);
+      displayName.value = username;
+    } catch (e) {
+      console.error('Failed to fetch username for display:', e);
+      displayName.value = store.userId;
+    }
+  }
+});
 
 async function emitSearch() {
   const query = q.value.trim();
