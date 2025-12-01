@@ -1,23 +1,39 @@
 <template>
   <header class="topbar">
     <div class="brand" @click="goHome">
-      <img src="@/assets/images/pubDiscussLogo.png" alt="PubDiscuss" class="logo" />
+      <img
+        src="@/assets/images/pubDiscussLogo.png"
+        alt="PubDiscuss"
+        class="logo"
+      />
     </div>
     <div class="search">
       <select v-model="source" class="source-select">
         <option value="arxiv">arXiv</option>
         <option value="biorxiv">bioRxiv</option>
       </select>
-      <input v-model.trim="q" :placeholder="source === 'arxiv' ? 'Search arXiv papers' : 'Search bioRxiv papers'" @keyup.enter="emitSearch" />
+      <input
+        v-model.trim="q"
+        :placeholder="
+          source === 'arxiv' ? 'Search arXiv papers' : 'Search bioRxiv papers'
+        "
+        @keyup.enter="emitSearch"
+      />
       <button class="primary" @click="emitSearch">Search</button>
     </div>
     <div class="right">
-      <div class="status" :class="{ ok: backendOk, bad: !backendOk }">{{ backendOk ? 'Connected' : 'Offline' }}</div>
+      <div class="status" :class="{ ok: backendOk, bad: !backendOk }">
+        {{ backendOk ? "Connected" : "Offline" }}
+      </div>
       <button v-if="!token" class="primary" @click="goLogin">Sign in</button>
       <div v-else class="user-profile">
-        <img src="@/assets/images/profile.png" alt="Profile" class="profile-icon" />
+        <img
+          src="@/assets/images/profile.png"
+          alt="Profile"
+          class="profile-icon"
+        />
         <div class="user-info">
-          <div class="user-email">{{ store?.userId || 'User' }}</div>
+          <div class="user-email">{{ store?.userId || "User" }}</div>
           <a href="#" @click.prevent="logout" class="sign-out-link">Sign out</a>
         </div>
       </div>
@@ -26,18 +42,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useSessionStore } from '@/stores/session';
-import { session } from '@/api/endpoints';
+import { ref, computed } from "vue";
+import { useSessionStore } from "@/stores/session";
+import { session } from "@/api/endpoints";
 
-type PaperSource = 'arxiv' | 'biorxiv';
+type PaperSource = "arxiv" | "biorxiv";
 
 const props = defineProps<{ backendOk: boolean }>();
-const emit = defineEmits<{ (e: 'search', q: string): void }>();
-const q = ref('');
-const source = ref<PaperSource>('arxiv');
+const emit = defineEmits<{ (e: "search", q: string): void }>();
+const q = ref("");
+const source = ref<PaperSource>("arxiv");
 let store: ReturnType<typeof useSessionStore>;
-try { store = useSessionStore(); } catch { /* during HMR pinia may not be active yet */ }
+try {
+  store = useSessionStore();
+} catch {
+  /* during HMR pinia may not be active yet */
+}
 const token = computed(() => store?.token ?? null);
 
 async function emitSearch() {
@@ -47,27 +67,35 @@ async function emitSearch() {
   const arxivIdLike = /^\d{4}\.\d{4,5}(v\d+)?$/;
   // bioRxiv DOI pattern: 10.1101/... or just the suffix YYYY.MM.DD.NNNNNN
   const biorxivIdLike = /^(10\.1101\/)?(\d{4}\.\d{2}\.\d{2}\.\d+)$/;
-  
-  if (source.value === 'arxiv' && arxivIdLike.test(query)) {
+
+  if (source.value === "arxiv" && arxivIdLike.test(query)) {
     window.location.assign(`/paper/${encodeURIComponent(query)}`);
     return;
   }
-  if (source.value === 'biorxiv' && biorxivIdLike.test(query)) {
+  if (source.value === "biorxiv" && biorxivIdLike.test(query)) {
     // Normalize to full DOI format for bioRxiv
-    const doi = query.startsWith('10.1101/') ? query : `10.1101/${query}`;
+    const doi = query.startsWith("10.1101/") ? query : `10.1101/${query}`;
     window.location.assign(`/paper/${encodeURIComponent(doi)}`);
     return;
   }
-  window.location.assign(`/search?q=${encodeURIComponent(query)}&source=${source.value}`);
+  window.location.assign(
+    `/search?q=${encodeURIComponent(query)}&source=${source.value}`
+  );
 }
-function goHome() { window.location.assign('/'); }
-function goLogin() { window.location.assign('/login'); }
+function goHome() {
+  window.location.assign("/");
+}
+function goLogin() {
+  window.location.assign("/login");
+}
 async function logout() {
   if (store?.token) {
-    try { await session.logout({ session: store.token }); } catch {}
+    try {
+      await session.logout({ session: store.token });
+    } catch {}
   }
   store?.clear?.();
-  window.location.assign('/');
+  window.location.assign("/");
 }
 </script>
 
@@ -83,7 +111,7 @@ async function logout() {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(8px);
 }
 .brand {
@@ -98,7 +126,7 @@ async function logout() {
 .logo {
   height: 45px;
   width: auto;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 .search {
   display: grid;
@@ -222,9 +250,11 @@ input:focus {
   text-decoration: underline;
 }
 @media (max-width: 780px) {
-  .topbar { grid-template-columns: 1fr auto; }
-  .brand { display: none; }
+  .topbar {
+    grid-template-columns: 1fr auto;
+  }
+  .brand {
+    display: none;
+  }
 }
 </style>
-
-

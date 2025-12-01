@@ -422,7 +422,7 @@ function onPrompt() {
 .page-wrapper {
   position: relative;
   margin: 0 auto 6px;
-  width: fit-content;
+  /* width: fit-content; */
 }
 .page-canvas {
   display: block;

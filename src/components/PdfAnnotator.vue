@@ -339,8 +339,8 @@ async function loadPdf() {
 
       // Match PdfView scaling behaviour, with optional external zoom
       const baseViewport = page.getViewport({ scale: 1 });
-      // Use zoom directly as scale to ensure 1:1 rendering at 100% zoom
-      const scale = zoom;
+      // Scale adjusted so 100% zoom displays at 90% size
+      const scale = zoom * 0.9;
 
       const pageView: any = new PDFPageView({
         container: wrapper,
@@ -972,7 +972,6 @@ watch(
 }
 .pages {
   display: block;
-  max-width: 70%;
 }
 .page-wrapper {
   position: relative;
@@ -983,10 +982,6 @@ watch(
 :global(.page) {
   max-width: 100%;
   height: auto !important;
-}
-:global(.canvasWrapper),
-:global(.textLayer) {
-  max-width: 100%;
 }
 :global(.overlay) {
   position: absolute;
