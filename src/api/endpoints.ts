@@ -201,7 +201,7 @@ export const anchored = {
           color?: string;
         };
       }>;
-    }>(`/PdfHighlighter/_listByPaper`, { paper: internalPaperId });
+    }>(`/PdfHighlighter/listByPaper`, { paper: internalPaperId });
     const rawHighlights = hlData?.highlights ?? [];
     // Unwrap highlights from { highlight: HighlightDoc } format
     const highlights = rawHighlights.map((h) => h.highlight);
