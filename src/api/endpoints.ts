@@ -8,16 +8,19 @@ export const paper = {
     const data = await post<{ result: string }>(`/PaperIndex/ensure`, args);
     return { id: data.result };
   },
-  async updateMeta(args: { id: string; title?: string }): Promise<void> {
-    await post<{ ok: true }>(`/PaperIndex/updateMeta`, args);
+  async updateMeta(args: { paper: string; title: string }): Promise<void> {
+    const data = await post<{ ok: true } | { error: string }>(`/PaperIndex/updateMeta`, args);
+    if ('error' in data) {
+      throw new Error(data.error);
+    }
   },
   async get(args: { id: string }): Promise<{ id: string; paperId: string; title?: string }> {
     // id is the external paperId (DOI, arXiv, etc.)
-    // Use _getByPaperId to get the paper by external identifier
-    const data = await post<
-      Array<{ paper: { _id: string; paperId: string; title?: string } | null }>
-    >(`/PaperIndex/_getByPaperId`, { paperId: args.id });
-    const doc = data[0]?.paper;
+    // Use getByPaperId to get the paper by external identifier
+    const data = await post<{
+      result: { _id: string; paperId: string; title?: string } | null;
+    }>(`/PaperIndex/getByPaperId`, { paperId: args.id });
+    const doc = data.result;
     if (doc) {
       // Return both internal _id (for backend operations) and external paperId (for display/URLs)
       return { id: doc._id, paperId: doc.paperId, title: doc.title };
@@ -26,12 +29,21 @@ export const paper = {
     return { id: args.id, paperId: args.id };
   },
   async listRecent(args?: { limit?: number }): Promise<{ papers: Array<{ id: string; paperId: string; title?: string; createdAt?: number }> }> {
-    // Query returns fan-out format: Array<{ paper: PaperDoc }>
-    const data = await post<
-      Array<{ paper: { _id: string; paperId: string; title?: string; createdAt?: number; authors: string[]; links: string[] } }>
-    >(`/PaperIndex/_listRecent`, args ?? {});
-    // Collect all papers from fan-out format
-    const papers = data.map(r => ({
+    // Sync returns { papers: [{ paper: PaperDoc }, ...] }
+    const data = await post<{
+      papers: Array<{
+        paper: {
+          _id: string;
+          paperId: string;
+          title?: string;
+          createdAt?: number;
+          authors: string[];
+          links: string[];
+        };
+      }>;
+    }>(`/PaperIndex/listRecent`, args ?? {});
+    // Extract papers from wrapped format
+    const papers = data.papers.map((r) => ({
       id: r.paper._id, // Internal _id for backend operations
       paperId: r.paper.paperId, // External paperId for display/URLs
       title: r.paper.title,

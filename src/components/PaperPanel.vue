@@ -35,7 +35,7 @@ async function onSave() {
   busy.value = true;
   try {
     const ensured = await paper.ensure({ id: paperId.value, title: title.value || undefined });
-    await paper.updateMeta({ id: ensured.id, title: title.value || undefined });
+    await paper.updateMeta({ paper: ensured.id, title: title.value || '' });
     message.value = `Paper saved (id: ${ensured.id})`;
     emit('paper-changed', ensured.id);
   } catch (e: any) {
