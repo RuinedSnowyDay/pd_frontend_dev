@@ -19,14 +19,14 @@
             @click="onVerifyOrcid"
             class="btn btn-primary verify-btn"
           >
-            {{ busyVerify ? 'Verifying…' : 'Verify ORCID' }}
+            {{ busyVerify ? "Verifying…" : "Verify ORCID" }}
           </button>
           <button
             :disabled="busyRemove"
             @click="onRemoveOrcid"
             class="btn btn-danger"
           >
-            {{ busyRemove ? 'Removing…' : 'Remove' }}
+            {{ busyRemove ? "Removing…" : "Remove" }}
           </button>
         </div>
         <div v-if="verifyMsg" class="alert alert-success">{{ verifyMsg }}</div>
@@ -34,23 +34,23 @@
         <div v-if="removeMsg" class="alert alert-success">{{ removeMsg }}</div>
         <div v-if="removeErr" class="alert alert-error">{{ removeErr }}</div>
       </div>
-      
+
       <!-- Add new ORCID -->
       <div v-if="!currentOrcid" class="section">
         <label class="label">Add ORCID</label>
         <div class="input-group">
-          <input 
-            v-model.trim="orcid" 
-            placeholder="0000-0001-2345-6789" 
+          <input
+            v-model.trim="orcid"
+            placeholder="0000-0001-2345-6789"
             class="input"
             :disabled="busyOrcid"
           />
-          <button 
-            :disabled="busyOrcid || !orcid" 
+          <button
+            :disabled="busyOrcid || !orcid"
             @click="onSaveOrcid"
             class="btn btn-primary"
           >
-            {{ busyOrcid ? 'Saving…' : 'Save' }}
+            {{ busyOrcid ? "Saving…" : "Save" }}
           </button>
         </div>
         <div v-if="orcidMsg" class="alert alert-success">{{ orcidMsg }}</div>
@@ -61,18 +61,18 @@
       <div class="section">
         <label class="label">Add Badge</label>
         <div class="input-group">
-          <input 
-            v-model.trim="badge" 
-            placeholder="e.g., Author, Reviewer" 
+          <input
+            v-model.trim="badge"
+            placeholder="e.g., Author, Reviewer"
             class="input"
             :disabled="busyBadge"
           />
-          <button 
-            :disabled="busyBadge || !badge" 
+          <button
+            :disabled="busyBadge || !badge"
             @click="onAddBadge"
             class="btn btn-secondary"
           >
-            {{ busyBadge ? 'Adding…' : 'Add' }}
+            {{ busyBadge ? "Adding…" : "Add" }}
           </button>
         </div>
         <div v-if="badgeMsg" class="alert alert-success">{{ badgeMsg }}</div>
@@ -83,32 +83,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useSessionStore } from '@/stores/session';
-import { identity } from '@/api/endpoints';
+import { ref, onMounted } from "vue";
+import { useSessionStore } from "@/stores/session";
+import { identity } from "@/api/endpoints";
 
 const session = useSessionStore();
 
-const orcid = ref('');
+const orcid = ref("");
 const busyOrcid = ref(false);
-const orcidMsg = ref('');
-const orcidErr = ref('');
+const orcidMsg = ref("");
+const orcidErr = ref("");
 
 const currentOrcid = ref<string | null>(null);
 const currentOrcidId = ref<string | null>(null);
 const isVerified = ref(false);
 const busyVerify = ref(false);
-const verifyMsg = ref('');
-const verifyErr = ref('');
+const verifyMsg = ref("");
+const verifyErr = ref("");
 
 const busyRemove = ref(false);
-const removeMsg = ref('');
-const removeErr = ref('');
+const removeMsg = ref("");
+const removeErr = ref("");
 
-const badge = ref('');
+const badge = ref("");
 const busyBadge = ref(false);
-const badgeMsg = ref('');
-const badgeErr = ref('');
+const badgeMsg = ref("");
+const badgeErr = ref("");
 
 // Load existing ORCID on mount
 onMounted(async () => {
@@ -121,15 +121,15 @@ onMounted(async () => {
         isVerified.value = data.verified || false;
       }
     } catch (e) {
-      console.error('Failed to load ORCID:', e);
+      console.error("Failed to load ORCID:", e);
     }
   }
-  
+
   // Check if we're returning from OAuth callback
   const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  const state = urlParams.get('state');
-  
+  const code = urlParams.get("code");
+  const state = urlParams.get("state");
+
   if (code && state) {
     await handleOAuthCallback(code, state);
     // Clean up URL
@@ -139,14 +139,22 @@ onMounted(async () => {
 
 async function onSaveOrcid() {
   const orcidRe = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
-  if (!orcidRe.test(orcid.value)) { orcidErr.value = 'Invalid ORCID'; return; }
-  busyOrcid.value = true; orcidErr.value=''; orcidMsg.value='';
+  if (!orcidRe.test(orcid.value)) {
+    orcidErr.value = "Invalid ORCID";
+    return;
+  }
+  busyOrcid.value = true;
+  orcidErr.value = "";
+  orcidMsg.value = "";
   try {
-    const result = await identity.addORCID({ session: session.token || '', orcid: orcid.value });
-    orcidMsg.value = 'ORCID saved';
+    const result = await identity.addORCID({
+      session: session.token || "",
+      orcid: orcid.value,
+    });
+    orcidMsg.value = "ORCID removed";
     currentOrcid.value = orcid.value;
     currentOrcidId.value = result.newORCID;
-    orcid.value = '';
+    orcid.value = "";
     // Reload to get full ORCID data including verified status
     await loadOrcidData();
   } catch (e: any) {
@@ -166,7 +174,7 @@ async function loadOrcidData() {
       isVerified.value = data.verified || false;
     }
   } catch (e) {
-    console.error('Failed to load ORCID data:', e);
+    console.error("Failed to load ORCID data:", e);
   }
 }
 
@@ -180,35 +188,35 @@ async function onVerifyOrcid() {
   if (!currentOrcidId.value) {
     // If we don't have the ORCID ID, try to get it from the current ORCID string
     if (!currentOrcid.value) {
-      verifyErr.value = 'No ORCID found. Please save ORCID first.';
+      verifyErr.value = "No ORCID found. Please save ORCID first.";
       return;
     }
     // Reload to get the ID
     await loadOrcidData();
     if (!currentOrcidId.value) {
-      verifyErr.value = 'ORCID ID not found. Please save ORCID first.';
+      verifyErr.value = "ORCID ID not found. Please save ORCID first.";
       return;
     }
   }
-  
+
   busyVerify.value = true;
-  verifyErr.value = '';
-  verifyMsg.value = '';
-  
+  verifyErr.value = "";
+  verifyMsg.value = "";
+
   try {
     // Use a consistent redirect URI that matches what's registered in ORCID
     const redirectUri = getRedirectUri();
-    const result = await identity.initiateVerification({ 
+    const result = await identity.initiateVerification({
       orcid: currentOrcidId.value,
       redirectUri,
-      session: session.token || ''
+      session: session.token || "",
     });
-    
+
     if (result.authUrl) {
       // Redirect to ORCID OAuth
       window.location.href = result.authUrl;
     } else {
-      verifyErr.value = 'Failed to initiate verification';
+      verifyErr.value = "Failed to initiate verification";
     }
   } catch (e: any) {
     verifyErr.value = e?.message ?? String(e);
@@ -219,27 +227,28 @@ async function onVerifyOrcid() {
 
 async function handleOAuthCallback(code: string, state: string) {
   busyVerify.value = true;
-  verifyErr.value = '';
-  verifyMsg.value = '';
-  
+  verifyErr.value = "";
+  verifyMsg.value = "";
+
   try {
     // First, get the ORCID ID from the OAuth state
     const orcidData = await identity.getORCIDFromState({ state });
-    
+
     if (!orcidData.orcid) {
-      verifyErr.value = 'Invalid or expired verification state. Please try again.';
+      verifyErr.value =
+        "Invalid or expired verification state. Please try again.";
       return;
     }
-    
+
     // Use the same redirect URI that was used in the authorization request
     const redirectUri = getRedirectUri();
-    await identity.completeVerification({ 
-      orcid: orcidData.orcid, 
-      code, 
+    await identity.completeVerification({
+      orcid: orcidData.orcid,
+      code,
       state,
-      redirectUri 
+      redirectUri,
     });
-    verifyMsg.value = 'ORCID verified successfully!';
+    verifyMsg.value = "ORCID verified successfully!";
     isVerified.value = true;
     await loadOrcidData();
   } catch (e: any) {
@@ -251,21 +260,28 @@ async function handleOAuthCallback(code: string, state: string) {
 
 async function onRemoveOrcid() {
   if (!currentOrcidId.value) {
-    removeErr.value = 'No ORCID ID found';
+    removeErr.value = "No ORCID ID found";
     return;
   }
 
-  if (!confirm('Are you sure you want to remove this ORCID? This action cannot be undone.')) {
+  if (
+    !confirm(
+      "Are you sure you want to remove this ORCID? This action cannot be undone."
+    )
+  ) {
     return;
   }
 
   busyRemove.value = true;
-  removeErr.value = '';
-  removeMsg.value = '';
+  removeErr.value = "";
+  removeMsg.value = "";
 
   try {
-    await identity.removeORCID({ session: session.token || '', orcid: currentOrcidId.value });
-    removeMsg.value = 'ORCID removed successfully';
+    await identity.removeORCID({
+      session: session.token || "",
+      orcid: currentOrcidId.value,
+    });
+    removeMsg.value = "ORCID removed successfully";
     // Clear current ORCID data
     currentOrcid.value = null;
     currentOrcidId.value = null;
@@ -278,11 +294,16 @@ async function onRemoveOrcid() {
 }
 
 async function onAddBadge() {
-  busyBadge.value = true; badgeErr.value=''; badgeMsg.value='';
+  busyBadge.value = true;
+  badgeErr.value = "";
+  badgeMsg.value = "";
   try {
-    await identity.addBadge({ session: session.token || '', badge: badge.value });
-    badgeMsg.value = 'Badge added';
-    badge.value = '';
+    await identity.addBadge({
+      session: session.token || "",
+      badge: badge.value,
+    });
+    badgeMsg.value = "Badge added";
+    badge.value = "";
   } catch (e: any) {
     badgeErr.value = e?.message ?? String(e);
   } finally {
@@ -331,7 +352,7 @@ async function onAddBadge() {
 }
 
 .orcid-value {
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-family: "Monaco", "Menlo", "Courier New", monospace;
   font-size: 14px;
   color: #374151;
   font-weight: 500;
@@ -474,5 +495,3 @@ async function onAddBadge() {
   border: 1px solid #fecaca;
 }
 </style>
-
-
