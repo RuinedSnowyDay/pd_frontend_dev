@@ -271,6 +271,7 @@ export const discussion = {
       anchorId?: string;
       includeDeleted?: boolean;
       session?: string;
+      groupFilter?: string; // 'all', 'public', or specific groupId
     },
   ): Promise<{
     threads: Array<{
@@ -301,6 +302,7 @@ export const discussion = {
     }>(`/DiscussionPub/listThreads`, {
       ...args,
       includeDeleted: args.includeDeleted ?? true,
+      groupFilter: args.groupFilter || 'all',
     });
     // Unwrap threads from { thread: ThreadDoc } format
     const threads = data.threads.map((t) => t.thread);

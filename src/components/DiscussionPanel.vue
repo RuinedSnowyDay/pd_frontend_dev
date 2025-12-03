@@ -358,15 +358,17 @@ function toggleExpanded(id: string) {
 async function loadThreads() {
   if (!pubId.value) { threads.value = []; return; }
   const activeFilter = (props.anchorFilterProp ?? anchorFilter.value) || undefined;
-  // Use loose typing here to avoid TS friction; backend supports includeDeleted and session.
+  // Use loose typing here to avoid TS friction; backend supports includeDeleted, session, and groupFilter.
   // Pass session for access control filtering on the backend
   // Always send session (even empty string) so the session-based sync matches
   // The backend will handle invalid/empty sessions by returning only public threads
+  // Pass groupFilter to filter by visibility (all, public, or specific groupId)
   const { threads: list } = await (discussion as any).listThreads({ 
     pubId: pubId.value, 
     anchorId: activeFilter, 
     includeDeleted: true,
     session: session.token || '',
+    groupFilter: visibilityFilter.value || 'all',
   });
   console.log('[DiscussionPanel] Loaded threads raw:', JSON.stringify(list, null, 2));
   console.log('[DiscussionPanel] Current user ID:', session.userId);
@@ -458,7 +460,7 @@ watch(() => props.paperId, () => {
 
 // Reload when filter changes and pub is present
 watch(
-  () => [props.anchorFilterProp, anchorFilter.value],
+  () => [props.anchorFilterProp, anchorFilter.value, visibilityFilter.value],
   async () => { if (pubId.value) await loadThreads(); }
 );
 
